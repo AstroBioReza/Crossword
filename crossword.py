@@ -32,7 +32,7 @@ Usage:
    - Preview the PDF
    - Export to PDF with custom title, description, and logos
 
-Author: Crossword Puzzle Generator
+Author: Mohammad Reza Shahjahan
 Date: November 2025
 Version: 2.0
 """
@@ -947,15 +947,15 @@ if __name__ == "__main__":
         ("Abiotic", "Non-living things"),
         ("Autotroph", "An organism that makes its own food"),
         ("Habitablezone", "The region in a planetary system where liquid water "),
-        ("Mariner", "First mission to Mars "),
-        ("Viking", "First life detection program "),
-        ("Murchison", "First meteorite containing organic matter "),
-        ("FruitFly", "The first living entity sent to space"),
+        ("Mariner", "First mission to Mars"),
+        ("Viking", "First life detection program"),
+        ("Murchison", "First meteorite containing organic matter"),
+        ("FruitFly", "First living entity sent to space"),
         ("Stromatolites", "Earliest evidence of life on Earth"),
-        ("Arecibo", "First intentional message sent to space "),
+        ("Arecibo", "The world's largest single-aperture telescope"),
         ("Panspermia", "Hypothesis that life brought to earth from space"),
         ("Extremophile", "Organisms that can survive in extreme environments"),
-        ("ASU", "Home of edgy scientists"),
+        ("ASU", "Home of edgy scientists!"),
         ("Iron", "Most abundant metal in solar system"),
         ("Oxygen", "Most abundant element in earth's crust"),
         ("Iceage", "A time of widespread glaciation"),
@@ -965,6 +965,8 @@ if __name__ == "__main__":
         ("Biosphere", "The layer of a planet where life exists"),
         ("GOE", "Turning point in Earth's history, when molecular oxygen first appeared"),
         ("SETI", "Search for Extraterrestrial Intelligence"),
+        ("REZA", "The Creator of all of these!"),
+        ("JamesWebb", "The largest, most powerful and most complex telescope ever launched into space")
     ]
     
     # Set grid size based on your longest word (add some buffer space)
