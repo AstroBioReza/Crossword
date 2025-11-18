@@ -372,14 +372,14 @@ class CrosswordGUI:
         tk.Label(top_frame, text="Puzzle Title:", font=('Arial', 10, 'bold'), bg='white').grid(row=0, column=0, sticky='w', pady=2)
         self.title_entry = tk.Entry(top_frame, font=('Arial', 10), width=50)
         self.title_entry.grid(row=0, column=1, sticky='ew', pady=2)
-        self.title_entry.insert(0, "Crossword Puzzle")
+        self.title_entry.insert(0, "Astrobiology Crossword")
         
         tk.Label(top_frame, text="Description:", font=('Arial', 10, 'bold'), bg='white').grid(row=1, column=0, sticky='nw', pady=2)
         desc_frame = tk.Frame(top_frame, bg='white')
         desc_frame.grid(row=1, column=1, sticky='ew', pady=2)
         self.description_entry = tk.Text(desc_frame, font=('Arial', 9), width=50, height=2, wrap='word')
         self.description_entry.pack(fill='both', expand=True)
-        self.description_entry.insert('1.0', "Fill in the crossword using the clues below")
+        self.description_entry.insert('1.0', "Designed by M. Reza Shahjahan\nGithub.com/AstroBioReza/Crossword")
         
         # Logo selection fields
         tk.Label(top_frame, text="Left Logo:", font=('Arial', 10, 'bold'), bg='white').grid(row=2, column=0, sticky='w', pady=2)
@@ -834,11 +834,11 @@ class CrosswordGUI:
         if puzzle_description:
             c.setFont("Helvetica-Oblique", 6)
             desc_lines = puzzle_description.split('\n')
-            desc_y = 30
+            desc_y = 20
             for line in reversed(desc_lines):  # Draw from bottom to top
                 if line.strip():  # Only draw non-empty lines
                     c.drawCentredString(width / 2, desc_y, line.strip())
-                    desc_y += 12  # Move up for next line
+                    desc_y += 8  # Move up for next line
         
         # Draw logos at the bottom
         logo_size = 60
@@ -942,55 +942,55 @@ if __name__ == "__main__":
     
     # Define your words and clues as (word, clue) tuples
     words_and_clues_list = [
-        ("NaturalSelection", "Natural way organisms evolve to suit their environment."),
+        ("NaturalSelection", "The process by which organisms become better adapted to their environment."),
         ("Exoplanet", "The name of a planet that orbits another star."),
-        ("Life", "Main subject of astrobiology."),
-        ("Organism", "The name for a living thing."),
-        ("Water", "One of the required conditions for life."),
+        ("Life", "a self-sustaining chemical system capable of undergoing Darwinian evolution."),
+        ("Organism", "A living entity with one or more cells."),
+        ("Water", "One of the required compounds for life."),
         ("Sun", "The name of our nearest star."),
         ("Moon", "The name of an object that orbits a planet."),
-        ("Biology", "Study of living things."),
+        ("Biology", "The study of living things."),
         ("Speciation", "Formation of new species."),
-        ("Alphahelix", "One type of folding."),
-        ("Metabolism", "Chemical process of living things."),
-        ("Abiotic", "Non-living things."),
+        ("Extremophile", "Organisms that can survive in extreme environments."),
+        ("Metabolism", "The chemical process of life."),
+        ("Abiotic", "Not living."),
         ("Autotroph", "An organism that makes its own food."),
         ("Habitablezone", "The region in a planetary system where liquid water can exist."),
-        ("Mariner", "First mission to Mars."),
-        ("Viking", "First life detection program."),
-        ("Murchison", "First meteorite containing organic matter."),
-        ("FruitFly", "First living entity sent to space."),
-        ("Stromatolites", "Earliest evidence of life on Earth."),
+        ("Mariner", "NASA probes that explored Venus, Mars, and Mercury"),
+        ("Viking", "The first life detection program."),
+        ("Murchison", "The first meteorite containing organic matter."),
+        ("FruitFly", "The first living entity sent to space."),
+        ("Stromatolites", "The layered rocks made by ancient microbial mats."),
         ("Arecibo", "The world's largest single-aperture telescope."),
-        ("Panspermia", "Hypothesis that life brought to earth from space."),
-        ("Extremophile", "Organisms that can survive in extreme environments."),
+        ("Panspermia", "The hypothesis that life on Earth originated from extraterrestrial sources."),
+        ("Claytheory", "A theory proposes that early life emerged on the surface of clay minerals"),
         ("ASU", "Home of edgy scientists!"),
-        ("Iron", "Most abundant metal in solar system."),
-        ("Oxygen", "Most abundant element in earth's crust."),
+        ("Iron", "The most abundant metal in the solar system."),
+        ("Oxygen", "The most abundant element in the Earth's crust."),
         ("Iceage", "A time of widespread glaciation."),
-        ("SnowballEarth", "Theory that Earth's oceans and land surfaces were covered in ice."),
-        ("ALH", "Martian meteorite that was found in Antarctica in 1984."),
+        ("SnowballEarth", "The theory that Earth's oceans and land surfaces were covered in ice."),
+        ("ALH", "The martian meteorite that was found in Antarctica in 1984."),
         ("ARC", "Ames Research Center."),
         ("Biosphere", "The layer of a planet where life exists."),
-        ("GOE", "Turning point in Earth's history, when molecular oxygen first appeared."),
+        ("GOE", "The turning point in Earth's history, when molecular oxygen first appeared."),
         ("SETI", "Search for Extraterrestrial Intelligence."),
         ("REZA", "The Creator of all of these!"),
         ("JamesWebb", "The most powerful telescope ever launched into space."),
-        ("Curiosity", "Mars rover that landed in Gale Crater in 2012."),
-        ("Perseverance", "Mars rover that landed in Jezero Crater in 2021."),
-        ("Ingenuity", "First helicopter to fly on another planet."),
-        ("Titan", "Largest moon of Saturn and second largest in the solar system."),
+        ("Curiosity", "The mars rover that landed in Gale Crater in 2012."),
+        ("Perseverance", "The mars rover that landed in Jezero Crater in 2021."),
+        ("Ingenuity", "The first helicopter to fly on another planet."),
+        ("Titan", "The largest moon of Saturn and second largest in the solar system."),
         ("Europa", "One of Jupiter's moons that may have a subsurface ocean."),
         ("Enceladus", "One of Saturn's moons that has geysers ejecting water ice."),
         ("Methane", "A simple organic molecule found on Titan and Mars."),
         ("Volatile", "A substance that vaporizes at a relatively low temperature."),
         ("Hadean", "The earliest eon in Earth's history, before the Archean."),
         ("Homeostasis", "The ability of an organism to maintain a stable internal environment."),
-        ("LUCA", "Last Universal Common Ancestor of all life on Earth."),
-        ("SuperEarth", "Rocky exoplanet with 1–10 times Earth’s mass."),
-        ("Rogue", "Free-floating planet not orbiting any star."),
-        ("Exomoon", "Natural satellite orbiting an exoplanet."),
-        ("Hycean", "Hypothetical class of ocean-covered planets with hydrogen-rich atmospheres."),
+        ("LUCA", "The Last Universal Common Ancestor of all life on Earth."),
+        ("SuperEarth", "A rocky exoplanet with 1–10 times Earth’s mass."),
+        ("Rogue", "A free-floating planet not orbiting any star."),
+        ("Exomoon", "A natural satellite orbiting an exoplanet."),
+        ("Hycean", "A hypothetical class of ocean-covered planets with hydrogen-rich atmospheres."),
         ("Fermi", "The paradox asking Why no aliens detected despite billions of exoplanets?")
     ]
     
