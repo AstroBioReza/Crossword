@@ -791,39 +791,48 @@ class CrosswordGUI:
                     c.setFillColorRGB(0, 0, 0)
                     
                     if (r, col) in self.number_map:
-                        c.setFont("Helvetica-Bold", max(6, cell_size * 0.25))
-                        c.drawString(x + 2, y + cell_size - max(8, cell_size * 0.3), 
-                                   str(self.number_map[(r, col)]))
+                        num_font_size = max(4.5, int(cell_size * 0.22))
+                        c.setFont("Helvetica-Bold", num_font_size)
+                        c.drawString(x + 2, y + cell_size - num_font_size - 1, str(self.number_map[(r, col)]))
         
         # Draw clues
         clues_start_y = start_y - 30
-        c.setFont("Helvetica-Bold", 11)
+        c.setFont("Helvetica-Bold", 9)
         c.drawString(50, clues_start_y, "ACROSS")
         
-        c.setFont("Helvetica", 9)
-        y_position = clues_start_y - 15
+        c.setFont("Helvetica", 6)
+        y_position = clues_start_y - 12
+        max_clue_width = (width / 2) - 60  # Maximum width for clues
         
         for clue in self.across_clues:
-            if y_position < 120:
+            if y_position < 95:  # Lower threshold to fit more clues
                 break
-            c.drawString(50, y_position, clue[:60])
-            y_position -= 12
+            # Properly truncate to fit width
+            truncated = clue
+            while c.stringWidth(truncated, "Helvetica", 6) > max_clue_width and len(truncated) > 10:
+                truncated = truncated[:-4] + "..."
+            c.drawString(50, y_position, truncated)
+            y_position -= 8.5  # Tighter spacing
         
-        c.setFont("Helvetica-Bold", 11)
-        c.drawString(width / 2 + 25, clues_start_y, "DOWN")
+        c.setFont("Helvetica-Bold", 9)
+        c.drawString(width / 2 + 10, clues_start_y, "DOWN")
         
-        c.setFont("Helvetica", 9)
-        y_position = clues_start_y - 15
+        c.setFont("Helvetica", 6)
+        y_position = clues_start_y - 12
         
         for clue in self.down_clues:
-            if y_position < 120:
+            if y_position < 95:  # Lower threshold to fit more clues
                 break
-            c.drawString(width / 2 + 25, y_position, clue[:60])
-            y_position -= 12
+            # Properly truncate to fit width
+            truncated = clue
+            while c.stringWidth(truncated, "Helvetica", 6) > max_clue_width and len(truncated) > 10:
+                truncated = truncated[:-4] + "..."
+            c.drawString(width / 2 + 10, y_position, truncated)
+            y_position -= 8.5  # Tighter spacing
         
         # Draw description at the bottom (centered, support multiple lines)
         if puzzle_description:
-            c.setFont("Helvetica-Oblique", 7)
+            c.setFont("Helvetica-Oblique", 6)
             desc_lines = puzzle_description.split('\n')
             desc_y = 30
             for line in reversed(desc_lines):  # Draw from bottom to top
@@ -936,7 +945,7 @@ if __name__ == "__main__":
         ("NaturalSelection", "Natural way organisms evolve to suit their environment."),
         ("Exoplanet", "The name of a planet that orbits another star."),
         ("Life", "Main subject of astrobiology."),
-        ("Organism", "The name for a living thing"),
+        ("Organism", "The name for a living thing."),
         ("Water", "One of the required conditions for life."),
         ("Sun", "The name of our nearest star."),
         ("Moon", "The name of an object that orbits a planet."),
@@ -945,7 +954,7 @@ if __name__ == "__main__":
         ("Alphahelix", "One type of folding."),
         ("Metabolism", "Chemical process of living things."),
         ("Abiotic", "Non-living things."),
-        ("Autotroph", "An organism that makes its own food"),
+        ("Autotroph", "An organism that makes its own food."),
         ("Habitablezone", "The region in a planetary system where liquid water can exist."),
         ("Mariner", "First mission to Mars."),
         ("Viking", "First life detection program."),
@@ -966,8 +975,8 @@ if __name__ == "__main__":
         ("GOE", "Turning point in Earth's history, when molecular oxygen first appeared."),
         ("SETI", "Search for Extraterrestrial Intelligence."),
         ("REZA", "The Creator of all of these!"),
-        ("JamesWebb", "The largest, most powerful and most complex telescope ever launched into space."),
-        ("Curiosity", "Mars rover that landed in Gale Crater in 2012"),
+        ("JamesWebb", "The most powerful telescope ever launched into space."),
+        ("Curiosity", "Mars rover that landed in Gale Crater in 2012."),
         ("Perseverance", "Mars rover that landed in Jezero Crater in 2021."),
         ("Ingenuity", "First helicopter to fly on another planet."),
         ("Titan", "Largest moon of Saturn and second largest in the solar system."),
@@ -982,8 +991,7 @@ if __name__ == "__main__":
         ("Rogue", "Free-floating planet not orbiting any star."),
         ("Exomoon", "Natural satellite orbiting an exoplanet."),
         ("Hycean", "Hypothetical class of ocean-covered planets with hydrogen-rich atmospheres."),
-        ("Fermi", "The paradox asking why we haven’t detected alien civilizations despite the huge number of potentially habitable exoplanets.")
-
+        ("Fermi", "The paradox asking Why no aliens detected despite billions of exoplanets?")
     ]
     
     # Set grid size based on your longest word (add some buffer space)
