@@ -995,7 +995,7 @@ if __name__ == "__main__":
     ]
     
     # Set grid size based on your longest word (add some buffer space)
-    GRID_SIZE = 38
+    GRID_SIZE = 40
     
     # Generate the crossword puzzle
     gen = generate_crossword(words_and_clues_list, height=GRID_SIZE, width=GRID_SIZE)
