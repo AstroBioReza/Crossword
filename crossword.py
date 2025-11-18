@@ -489,6 +489,7 @@ class CrosswordGUI:
                     # Bind key events for single character limit and navigation
                     entry.bind('<KeyRelease>', lambda e, row=r, col=c: self.on_key_release(e, row, col))
                     entry.bind('<FocusIn>', lambda e, row=r, col=c: self.on_focus(e, row, col))
+                    entry.bind('<Button-1>', lambda e, row=r, col=c: self.on_click(e, row, col))
                     entry.bind('<BackSpace>', lambda e, row=r, col=c: self.on_backspace(e, row, col))
                     entry.bind('<Return>', lambda e, row=r, col=c: self.move_down(row, col))
                     entry.bind('<Up>', lambda e, row=r, col=c: self.move_up(row, col))
@@ -527,6 +528,19 @@ class CrosswordGUI:
         self.number_map = number_map
         self.across_clues = across
         self.down_clues = down
+        
+        # Create mapping from cell positions to clue numbers
+        self.cell_to_clues = {}  # Maps (row, col) to list of (clue_num, direction)
+        for p in sorted_placements:
+            pr, pc, vertical, word, clue = p
+            clue_num = number_map[(pr, pc)]
+            direction = 'down' if vertical else 'across'
+            for i in range(len(word)):
+                r = pr + i if vertical else pr
+                c = pc if vertical else pc + i
+                if (r, c) not in self.cell_to_clues:
+                    self.cell_to_clues[(r, c)] = []
+                self.cell_to_clues[(r, c)].append((clue_num, direction))
 
         # Add scrollable clues section
         clues_canvas = tk.Canvas(clues_container, bg='white')
@@ -543,13 +557,22 @@ class CrosswordGUI:
             clues_canvas.configure(scrollregion=clues_canvas.bbox('all'))
         clues_frame.bind('<Configure>', configure_clues_scroll)
         
+        # Store clue labels for highlighting
+        self.clue_labels = {}
+        
         tk.Label(clues_frame, text="ACROSS →", font=('Arial', 12, 'bold'), bg='white').pack(anchor='nw', pady=(0, 5))
-        across_text = "\n".join(across)
-        tk.Label(clues_frame, text=across_text, justify='left', anchor='nw', bg='white').pack(anchor='nw')
+        for i, clue_text in enumerate(across):
+            clue_num = int(clue_text.split('.')[0])
+            label = tk.Label(clues_frame, text=clue_text, justify='left', anchor='nw', bg='white', font=('Arial', 10))
+            label.pack(anchor='nw')
+            self.clue_labels[(clue_num, 'across')] = label
         
         tk.Label(clues_frame, text="\nDOWN ↓", font=('Arial', 12, 'bold'), bg='white').pack(anchor='nw', pady=(10, 5))
-        down_text = "\n".join(down)
-        tk.Label(clues_frame, text=down_text, justify='left', anchor='nw', bg='white').pack(anchor='nw')
+        for i, clue_text in enumerate(down):
+            clue_num = int(clue_text.split('.')[0])
+            label = tk.Label(clues_frame, text=clue_text, justify='left', anchor='nw', bg='white', font=('Arial', 10))
+            label.pack(anchor='nw')
+            self.clue_labels[(clue_num, 'down')] = label
 
         # --- 4. Buttons (under the puzzle on the left) ---
         buttons_frame = tk.Frame(left_frame)
@@ -656,23 +679,51 @@ class CrosswordGUI:
         has_across = self.has_word_across(row, col)
         has_down = self.has_word_down(row, col)
         
-        # If both directions are available (cross section), keep current direction
-        if has_across and has_down:
-            # Only change direction if clicking on a different cell
-            # If clicking the same cell again, keep the current direction
-            if not hasattr(self, 'last_focused_cell') or self.last_focused_cell != (row, col):
-                # Moving to a new cell - keep current direction if it's valid
-                # Otherwise default to across
+        # Set initial direction when moving to a new cell
+        if not hasattr(self, 'last_focused_cell') or self.last_focused_cell != (row, col):
+            if has_across and has_down:
+                # Default to across for new cells
                 if not hasattr(self, 'current_direction') or self.current_direction not in ['across', 'down']:
                     self.current_direction = 'across'
-                # else: keep current_direction as is
-            # If clicking same cell, keep current direction (no change)
-        elif has_down:
-            self.current_direction = 'down'
-        elif has_across:
-            self.current_direction = 'across'
+            elif has_down:
+                self.current_direction = 'down'
+            elif has_across:
+                self.current_direction = 'across'
+            
+            self.last_focused_cell = (row, col)
+            # Highlight the corresponding clue
+            self.highlight_clue(row, col)
+    
+    def on_click(self, event, row, col):
+        """Handle mouse click - toggle between clues if cell has multiple clues."""
+        # Check if this cell has multiple clues
+        cell_clues = self.cell_to_clues.get((row, col), [])
         
-        self.last_focused_cell = (row, col)
+        # If clicking the same cell and it has multiple clues, toggle direction
+        if hasattr(self, 'last_focused_cell') and self.last_focused_cell == (row, col) and len(cell_clues) > 1:
+            # Get available directions for this cell
+            available_directions = [direction for _, direction in cell_clues]
+            
+            # Toggle between available directions
+            if 'across' in available_directions and 'down' in available_directions:
+                self.current_direction = 'down' if self.current_direction == 'across' else 'across'
+                self.highlight_clue(row, col)
+    
+    def highlight_clue(self, row, col):
+        """Highlight the clue corresponding to the current cell and direction."""
+        # Clear all previous highlights
+        for label in self.clue_labels.values():
+            label.config(bg='white', font=('Arial', 10))
+        
+        # Get clues for this cell
+        cell_clues = self.cell_to_clues.get((row, col), [])
+        
+        # Find and highlight the clue matching current direction
+        for clue_num, direction in cell_clues:
+            if direction == self.current_direction:
+                if (clue_num, direction) in self.clue_labels:
+                    self.clue_labels[(clue_num, direction)].config(bg='#FFFF99', font=('Arial', 10, 'bold'))
+                break
     
     def has_word_across(self, row, col):
         """Check if there's a horizontal word at this position."""
@@ -740,9 +791,9 @@ class CrosswordGUI:
         
         # Title
         c.setFont("Helvetica-Bold", 16)
-        c.drawCentredString(width / 2, height - 40, puzzle_title)
+        c.drawCentredString(width / 2, height - 25, puzzle_title)
         
-        current_y = height - 60
+        current_y = height - 45
         
         # Find the bounds of non-black cells to trim the grid
         min_row, max_row = self.gen.height, -1
@@ -761,8 +812,8 @@ class CrosswordGUI:
         trimmed_width = max_col - min_col + 1
         
         # Calculate grid dimensions
-        max_grid_width = width - 100
-        max_grid_height = 400
+        max_grid_width = width - 40
+        max_grid_height = 550
         
         cell_size = min(
             max_grid_width / trimmed_width,
@@ -796,32 +847,44 @@ class CrosswordGUI:
                         c.drawString(x + 2, y + cell_size - num_font_size - 1, str(self.number_map[(r, col)]))
         
         # Draw clues
-        clues_start_y = start_y - 30
-        c.setFont("Helvetica-Bold", 9)
-        c.drawString(50, clues_start_y, "ACROSS")
+        clues_start_y = start_y - 8
         
-        c.setFont("Helvetica", 6)
-        y_position = clues_start_y - 12
+        # Draw description on the right side between logos and ACROSS clues
+        if puzzle_description:
+            c.setFont("Helvetica-Oblique", 6)
+            desc_lines = puzzle_description.split('\n')
+            desc_y = 8
+            desc_x = width - 240  # Fixed X position
+            for line in reversed(desc_lines):  # Draw from bottom to top
+                if line.strip():  # Only draw non-empty lines
+                    c.drawCentredString(desc_x, desc_y, line.strip())
+                    desc_y += 8  # Move up for next line
+        
+        c.setFont("Helvetica-Bold", 9)
+        c.drawString(30, clues_start_y, "ACROSS")
+        
+        c.setFont("Helvetica", 7.5)
+        y_position = clues_start_y - 10
         max_clue_width = (width / 2) - 60  # Maximum width for clues
         
         for clue in self.across_clues:
-            if y_position < 95:  # Lower threshold to fit more clues
+            if y_position < 8:  # Lower threshold to fit more clues
                 break
             # Properly truncate to fit width
             truncated = clue
             while c.stringWidth(truncated, "Helvetica", 6) > max_clue_width and len(truncated) > 10:
                 truncated = truncated[:-4] + "..."
-            c.drawString(50, y_position, truncated)
+            c.drawString(30, y_position, truncated)
             y_position -= 8.5  # Tighter spacing
         
         c.setFont("Helvetica-Bold", 9)
         c.drawString(width / 2 + 10, clues_start_y, "DOWN")
         
-        c.setFont("Helvetica", 6)
+        c.setFont("Helvetica", 7.5)
         y_position = clues_start_y - 12
         
         for clue in self.down_clues:
-            if y_position < 95:  # Lower threshold to fit more clues
+            if y_position < 55:  # Lower threshold to fit more clues
                 break
             # Properly truncate to fit width
             truncated = clue
@@ -830,33 +893,23 @@ class CrosswordGUI:
             c.drawString(width / 2 + 10, y_position, truncated)
             y_position -= 8.5  # Tighter spacing
         
-        # Draw description at the bottom (centered, support multiple lines)
-        if puzzle_description:
-            c.setFont("Helvetica-Oblique", 6)
-            desc_lines = puzzle_description.split('\n')
-            desc_y = 20
-            for line in reversed(desc_lines):  # Draw from bottom to top
-                if line.strip():  # Only draw non-empty lines
-                    c.drawCentredString(width / 2, desc_y, line.strip())
-                    desc_y += 8  # Move up for next line
+        # Draw logos at the bottom left (smaller, side by side)
+        logo_size = 40
+        logo_y = 8
         
-        # Draw logos at the bottom
-        logo_size = 60
-        logo_y = 20
-        
-        # Left logo
+        # Left logo (positioned on right side)
         left_logo = self.left_logo_path.get()
         if left_logo and os.path.exists(left_logo):
             try:
-                c.drawImage(left_logo, 50, logo_y, width=logo_size, height=logo_size, preserveAspectRatio=True, mask='auto')
+                c.drawImage(left_logo, width - 10 - (logo_size * 2) - 5, logo_y, width=logo_size, height=logo_size, preserveAspectRatio=True, mask='auto')
             except:
                 pass
         
-        # Right logo
+        # Right logo (positioned next to left logo on right side with spacing)
         right_logo = self.right_logo_path.get()
         if right_logo and os.path.exists(right_logo):
             try:
-                c.drawImage(right_logo, width - 50 - logo_size, logo_y, width=logo_size, height=logo_size, preserveAspectRatio=True, mask='auto')
+                c.drawImage(right_logo, width - 10 - logo_size, logo_y, width=logo_size, height=logo_size, preserveAspectRatio=True, mask='auto')
             except:
                 pass
     
