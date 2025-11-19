@@ -43,7 +43,7 @@ import random
 import json
 import pandas as pd
 import sys
-from reportlab.lib.pagesizes import letter
+from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas as pdf_canvas
 from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
@@ -734,16 +734,16 @@ class CrosswordGUI:
                 minutes = (elapsed % 3600) // 60
                 seconds = elapsed % 60
                 time_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-                messagebox.showinfo("Result", f"Congratulations! You solved the puzzle correctly!\n\n⏱Time spent: {time_str}")
+                messagebox.showinfo("Result", f"✅ Congratulations! You solved the puzzle correctly!\n\n⏱️ Time spent: {time_str}")
             else:
-                messagebox.showinfo("Result", "Congratulations! You solved the puzzle correctly!")
+                messagebox.showinfo("Result", "✅ Congratulations! You solved the puzzle correctly!")
         else:
             error_msg = ""
             if empty_count > 0:
                 error_msg += f"{empty_count} empty cell(s). "
             if incorrect_count > 0:
                 error_msg += f"{incorrect_count} error(s) remain."
-            messagebox.showinfo("Result", f"Not all answers are correct yet. {error_msg} Keep trying!")
+            messagebox.showinfo("Result", f"❌ Not all answers are correct yet. {error_msg} Keep trying!")
 
     def select_logo(self, position):
         """Open file dialog to select a logo image."""
@@ -957,7 +957,7 @@ class CrosswordGUI:
         c.setFont("Helvetica-Bold", 16)
         c.drawCentredString(width / 2, height - 25, puzzle_title)
         
-        current_y = height - 45
+        current_y = height - 40
         
         # Find the bounds of non-black cells to trim the grid
         min_row, max_row = self.gen.height, -1
@@ -977,7 +977,7 @@ class CrosswordGUI:
         
         # Calculate grid dimensions
         max_grid_width = width - 40
-        max_grid_height = 550
+        max_grid_height = 650
         
         cell_size = min(
             max_grid_width / trimmed_width,
@@ -1086,8 +1086,8 @@ class CrosswordGUI:
             temp_file.close()
             
             # Generate PDF
-            c = pdf_canvas.Canvas(temp_filename, pagesize=letter)
-            width, height = letter
+            c = pdf_canvas.Canvas(temp_filename, pagesize=A4)
+            width, height = A4
             self.create_pdf_content(c, width, height)
             c.save()
             
@@ -1101,7 +1101,7 @@ class CrosswordGUI:
         """
         Export the crossword puzzle to a PDF file.
         
-        Creates a Letter-sized PDF (8.5" x 11") with:
+        Creates an A4-sized PDF with:
         - Custom title at top
         - Trimmed crossword grid (no excess black cells)
         - Numbered cells matching the clues
@@ -1121,9 +1121,9 @@ class CrosswordGUI:
             return
         
         try:
-            # Letter size in points (612 x 792)
-            c = pdf_canvas.Canvas(filename, pagesize=letter)
-            width, height = letter
+            # A4 size in points (595 x 842)
+            c = pdf_canvas.Canvas(filename, pagesize=A4)
+            width, height = A4
             
             self.create_pdf_content(c, width, height)
             
