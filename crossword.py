@@ -557,6 +557,22 @@ class CrosswordGUI:
             clues_canvas.configure(scrollregion=clues_canvas.bbox('all'))
         clues_frame.bind('<Configure>', configure_clues_scroll)
         
+        # Add mouse wheel scrolling support for clues area
+        def on_clues_mousewheel(event):
+            clues_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        def enable_clues_scroll(event):
+            self.root.bind_all("<MouseWheel>", on_clues_mousewheel)
+        
+        def disable_clues_scroll(event):
+            self.root.unbind_all("<MouseWheel>")
+        
+        # Bind mouse enter/leave events for clues area
+        clues_container.bind("<Enter>", enable_clues_scroll)
+        clues_container.bind("<Leave>", disable_clues_scroll)
+        clues_canvas.bind("<Enter>", enable_clues_scroll)
+        clues_canvas.bind("<Leave>", disable_clues_scroll)
+        
         # Store clue labels for highlighting
         self.clue_labels = {}
         
