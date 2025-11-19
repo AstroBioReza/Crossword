@@ -4,7 +4,7 @@
 
 An interactive crossword puzzle generator and solver designed for educational purposes. This Python application automatically generates crossword puzzles from word lists, provides an intuitive GUI for solving, and exports puzzles to professional PDF format.
 
-**Author:** Mohammad Reza Shahjahan  
+**Author:** M.Reza Shahjahan  
 **Version:** 3.0  
 **Date:** November 2025
 
