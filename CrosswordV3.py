@@ -53,10 +53,57 @@ import time
 
 
 # ============================================================================
+# SECRET CODE CONFIGURATION
+# ============================================================================
+
+# Default secret word (used if no CSV file provided)
+DEFAULT_SECRET_WORD = "EMERGENCE"
+DEFAULT_SECRET_CLUE = "The secret code: A phenomenon where a system's complex, novel properties arise from the interactions of its simpler parts, even though those properties are not present in the individual components."
+
+# These will be set dynamically based on word list
+SECRET_WORD = DEFAULT_SECRET_WORD
+SECRET_CLUE = DEFAULT_SECRET_CLUE
+
+
+# ============================================================================
 # CROSSWORD GENERATION FUNCTIONS
 # ============================================================================
 
-def generate_crossword(words_and_clues, height=15, width=15):
+def select_secret_word_from_list(words_and_clues, is_csv=False):
+    """
+    Randomly select a word and clue from the list to be the secret code.
+    If is_csv is False (using default list), use the hardcoded EMERGENCE secret.
+    
+    Parameters:
+    -----------
+    words_and_clues : list of tuple
+        List of (word, clue) tuples
+    is_csv : bool
+        True if words came from CSV file, False if using default list
+    
+    Returns:
+    --------
+    tuple
+        (secret_word, secret_clue) selected from the list
+    """
+    global SECRET_WORD, SECRET_CLUE
+    
+    if is_csv and words_and_clues and len(words_and_clues) > 0:
+        # CSV file provided - randomly select one word/clue pair
+        selected = random.choice(words_and_clues)
+        SECRET_WORD = selected[0].upper().replace(" ", "")  # Remove spaces, uppercase
+        SECRET_CLUE = f"The secret code: {selected[1]}"
+        print(f"Secret word selected from CSV: {SECRET_WORD} ({len(SECRET_WORD)} letters)")
+    else:
+        # No CSV file - use default EMERGENCE
+        SECRET_WORD = DEFAULT_SECRET_WORD
+        SECRET_CLUE = DEFAULT_SECRET_CLUE
+        print("Using default secret word: EMERGENCE")
+    
+    return SECRET_WORD, SECRET_CLUE
+
+
+def generate_crossword(words_and_clues, height=15, width=15, is_csv=False):
     """
     Generate a crossword puzzle grid from a list of words and clues.
     
@@ -77,6 +124,9 @@ def generate_crossword(words_and_clues, height=15, width=15):
     width : int, optional (default=15)
         Width of the crossword grid in cells
     
+    is_csv : bool, optional (default=False)
+        True if words came from CSV file, False if using default list
+    
     Returns:
     --------
     CrosswordGenerator or None
@@ -90,6 +140,9 @@ def generate_crossword(words_and_clues, height=15, width=15):
     >>> if puzzle:
     ...     print(f"Placed {len(puzzle.placements)} words")
     """
+    # Select secret word from the list before generating puzzle
+    select_secret_word_from_list(words_and_clues, is_csv)
+    
     try:
         # Validate input
         if not words_and_clues:
@@ -147,8 +200,49 @@ def generate_crossword(words_and_clues, height=15, width=15):
     total = len(words_and_clues)
     if placed < total:
         print(f"Warning: Only placed {placed}/{total} words. Consider increasing grid size.")
+    
+    # Select random cells for secret word
+    gen.secret_cells = select_secret_cells(gen, SECRET_WORD)
+    if gen.secret_cells:
+        print(f"Secret code initialized with {len(gen.secret_cells)} cells.")
         
     return gen
+
+
+def select_secret_cells(gen, secret_word):
+    """
+    Randomly select cells from the puzzle grid to form the secret word.
+    
+    Parameters:
+    -----------
+    gen : CrosswordGenerator
+        The generated crossword puzzle
+    secret_word : str
+        The secret word to spell out
+    
+    Returns:
+    --------
+    list of tuple
+        List of (row, col) coordinates for cells that spell the secret word,
+        or empty list if not enough cells available
+    """
+    # Collect all non-black cells
+    available_cells = []
+    for r in range(gen.height):
+        for c in range(gen.width):
+            if gen.grid[r][c] != '#':
+                available_cells.append((r, c))
+    
+    # Check if we have enough cells
+    if len(available_cells) < len(secret_word):
+        print(f"Warning: Not enough cells for secret word. Need {len(secret_word)}, have {len(available_cells)}")
+        return []
+    
+    # Randomly select cells for each letter of the secret word
+    random.shuffle(available_cells)
+    selected_cells = available_cells[:len(secret_word)]
+    
+    return selected_cells
 
 
 # ============================================================================
@@ -199,6 +293,7 @@ class CrosswordGenerator:
         self.width = width
         self.grid = [['#' for _ in range(width)] for _ in range(height)]
         self.placements = []
+        self.secret_cells = []  # Will store (row, col) tuples for secret code cells
     
     # ... (include is_valid_placement and find_and_place_word from the previous revision)
     def is_valid_placement(self, word, row, col, vertical, require_intersection=False):
@@ -402,6 +497,11 @@ class CrosswordGUI:
         self.timer_running = False
         self.timer_started = False
         
+        # Secret code tracking
+        self.secret_word = SECRET_WORD
+        self.secret_clue = SECRET_CLUE
+        self.secret_cells = gen.secret_cells if hasattr(gen, 'secret_cells') else []
+        
         # Add title and description fields at the top
         top_frame = tk.Frame(self.root, bg='white', padx=10, pady=5)
         top_frame.pack(fill='x')
@@ -515,11 +615,14 @@ class CrosswordGUI:
                     cell_frame.config(bg='black')
                 else:
                     # White cell for a letter
+                    # Check if this is a secret cell
+                    is_secret_cell = (r, c) in self.secret_cells
+                    bg_color = '#ADD8E6' if is_secret_cell else 'white'  # Light blue for secret cells
                     
                     # Entry box for user input (create FIRST so number appears on top)
                     entry = tk.Entry(cell_frame, width=2, font=('Arial', 14, 'bold'), justify='center', 
                                      bd=0, highlightthickness=1, highlightbackground='gray',
-                                     relief='flat', takefocus=True) 
+                                     relief='flat', takefocus=True, bg=bg_color) 
                     entry.pack(expand=True, fill='both', padx=4, pady=4)
                     self.entries[r][c] = entry
                     
@@ -646,6 +749,18 @@ class CrosswordGUI:
         self.timer_label.pack(fill='x', pady=(0, 5))
         self.update_timer()
         
+        # Secret Code input section
+        secret_frame = tk.Frame(left_frame, bg='#F3E5F5', pady=5, padx=5)
+        secret_frame.pack(fill='x', pady=(5, 0))
+        
+        secret_button = tk.Button(secret_frame, text="The Secret Code", command=self.show_secret_clue, 
+                                   bg="#9C27B0", fg="white", font=('Arial', 10, 'bold'), width=15)
+        secret_button.pack(side='left', padx=(0, 5))
+        
+        self.secret_entry = tk.Entry(secret_frame, font=('Arial', 10), width=20)
+        self.secret_entry.pack(side='left', fill='x', expand=True)
+        self.secret_entry.bind('<KeyRelease>', lambda e: self.check_secret_code())
+        
         # --- 5. Buttons (under the puzzle on the left) ---
         buttons_frame = tk.Frame(left_frame)
         buttons_frame.pack(fill='x', pady=(5, 0))
@@ -669,8 +784,25 @@ class CrosswordGUI:
                 for c in range(self.gen.width):
                     if self.entries[r][c] is not None:
                         self.entries[r][c].delete(0, tk.END)
-                        self.entries[r][c].config(bg='white')
+                        # Restore light blue for secret cells, white for others
+                        is_secret = (r, c) in self.secret_cells
+                        self.entries[r][c].config(bg='#ADD8E6' if is_secret else 'white')
+            self.secret_entry.delete(0, tk.END)
             self.update_progress()
+    
+    def show_secret_clue(self):
+        """Display the secret code clue in a popup window."""
+        messagebox.showinfo("Secret Code Clue", self.secret_clue)
+    
+    def check_secret_code(self):
+        """Check if the entered secret code is correct."""
+        entered = self.secret_entry.get().strip().upper()
+        if entered == self.secret_word:
+            self.secret_entry.config(bg='#90EE90')  # Light green
+        elif entered:
+            self.secret_entry.config(bg='white')
+        else:
+            self.secret_entry.config(bg='white')
     
     def update_progress(self):
         """Update the progress label showing completion percentage."""
@@ -723,9 +855,14 @@ class CrosswordGUI:
         for r in range(self.gen.height):
             for c in range(self.gen.width):
                 if self.gen.grid[r][c] != '#' and not self.entries[r][c].get().strip() and self.entries[r][c].cget('bg') != 'lightgray':
-                    self.entries[r][c].config(bg='white')
+                    # Restore light blue for secret cells, white for others
+                    is_secret = (r, c) in self.secret_cells
+                    self.entries[r][c].config(bg='#ADD8E6' if is_secret else 'white')
         
-        if incorrect_count == 0 and empty_count == 0:
+        # Check secret code
+        secret_correct = self.secret_entry.get().strip().upper() == self.secret_word
+        
+        if incorrect_count == 0 and empty_count == 0 and secret_correct:
             # Stop timer
             self.timer_running = False
             if self.start_time is not None:
@@ -742,8 +879,10 @@ class CrosswordGUI:
             if empty_count > 0:
                 error_msg += f"{empty_count} empty cell(s). "
             if incorrect_count > 0:
-                error_msg += f"{incorrect_count} error(s) remain."
-            messagebox.showinfo("Result", f"❌ Not all answers are correct yet. {error_msg} Keep trying!")
+                error_msg += f"{incorrect_count} error(s) remain. "
+            if not secret_correct:
+                error_msg += "Secret code missing or incorrect. "
+            messagebox.showinfo("Result", f"❌ Not all answers are correct yet. {error_msg}Keep trying!")
 
     def select_logo(self, position):
         """Open file dialog to select a logo image."""
@@ -866,9 +1005,13 @@ class CrosswordGUI:
                         elif current_bg == '#FFC0CB':  # Keep incorrect answers pink
                             continue
                         else:
-                            self.entries[r][c].config(bg='white')
-                    elif current_bg not in ['lightgray', 'black']:
-                        self.entries[r][c].config(bg='white')
+                            # Restore light blue for secret cells, white for others
+                            is_secret = (r, c) in self.secret_cells
+                            self.entries[r][c].config(bg='#ADD8E6' if is_secret else 'white')
+                    elif current_bg not in ['lightgray', 'black', '#ADD8E6']:
+                        # Restore light blue for secret cells, white for others
+                        is_secret = (r, c) in self.secret_cells
+                        self.entries[r][c].config(bg='#ADD8E6' if is_secret else 'white')
         
         # Get clues for this cell
         cell_clues = self.cell_to_clues.get((row, col), [])
@@ -991,7 +1134,6 @@ class CrosswordGUI:
         start_y = current_y - grid_height
         
         # Draw grid (only the trimmed portion)
-        c.setLineWidth(0.5)
         for r in range(min_row, max_row + 1):
             for col in range(min_col, max_col + 1):
                 x = start_x + (col - min_col) * cell_size
@@ -1001,6 +1143,10 @@ class CrosswordGUI:
                     # Skip black cells - don't draw them
                     continue
                 else:
+                    # Check if this is a secret cell - use thicker border
+                    is_secret = (r, col) in self.secret_cells
+                    c.setLineWidth(2 if is_secret else 0.5)
+                    
                     c.setFillColorRGB(1, 1, 1)
                     c.rect(x, y, cell_size, cell_size, fill=1, stroke=1)
                     c.setFillColorRGB(0, 0, 0)
@@ -1012,6 +1158,15 @@ class CrosswordGUI:
         
         # Draw clues
         clues_start_y = start_y - 8
+        
+        # Draw vertical "The secret code:" text on the left side (counter-clockwise)
+        c.saveState()
+        c.translate(30, clues_start_y - 50)  # Position at same x as ACROSS clues
+        c.rotate(90)  # Rotate counter-clockwise
+        c.setFont("Helvetica-Bold", 9)
+        c.setFillColorRGB(0.6, 0, 0.6)  # Purple color
+        c.drawString(0, 0, self.secret_clue.split(':')[1].strip()[:50] + "...")  # Truncate clue
+        c.restoreState()
         
         # Draw description on the right side between logos and ACROSS clues
         if puzzle_description:
@@ -1197,6 +1352,7 @@ if __name__ == "__main__":
     """
     
     # Check if CSV file is provided as command line argument
+    is_from_csv = False
     if len(sys.argv) > 1:
         csv_file = sys.argv[1]
         print(f"Loading words from CSV file: {csv_file}")
@@ -1205,6 +1361,7 @@ if __name__ == "__main__":
         if words_and_clues_list is None:
             print("Failed to load CSV file. Exiting.")
             sys.exit(1)
+        is_from_csv = True
     else:
         print("No CSV file provided. Using default word list.")
         # Define your words and clues as (word, clue) tuples
@@ -1265,7 +1422,7 @@ if __name__ == "__main__":
     GRID_SIZE = 40
     
     # Generate the crossword puzzle
-    gen = generate_crossword(words_and_clues_list, height=GRID_SIZE, width=GRID_SIZE)
+    gen = generate_crossword(words_and_clues_list, height=GRID_SIZE, width=GRID_SIZE, is_csv=is_from_csv)
     
     # Launch the GUI if puzzle generation was successful
     if gen and len(gen.placements) > 0:
