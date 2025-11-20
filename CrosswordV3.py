@@ -10,24 +10,32 @@ Features:
 1. Automatic crossword grid generation with word placement optimization
 2. Interactive GUI with keyboard navigation (arrow keys, auto-advance)
 3. Real-time answer checking with visual feedback
-4. PDF export with customizable title, description, and logos
-5. PDF preview before saving
-6. Multi-line description support
-7. Automatic grid trimming (removes excess black cells)
+4. Secret code feature - randomly selected cells that spell a hidden word
+5. PDF export with customizable title, description, and logos (US Letter size)
+6. PDF preview before saving
+7. Multi-line description support
+8. Automatic grid trimming (removes excess black cells)
+9. Progress tracking and timer functionality
+10. Secret code cells highlighted with thick borders in PDF
 
 Main Components:
 ----------------
-- CrosswordGenerator: Core logic for generating crossword grids
-- CrosswordGUI: Tkinter-based interactive interface
-- PDF Export: ReportLab-based PDF generation with A4 formatting
+- CrosswordGenerator: Core logic for generating crossword grids with secret cell selection
+- CrosswordGUI: Tkinter-based interactive interface with secret code input
+- PDF Export: ReportLab-based PDF generation with US Letter (8.5" × 11") formatting
 
 Usage:
 ------
 1. Define your words and clues as a list of tuples: [(word, clue), ...]
+   OR provide a CSV file with 'words' and 'clues' columns
 2. Call generate_crossword() to create the puzzle grid
+   - A secret word is automatically selected from the word list (or use default)
+   - Random cells are selected and highlighted for the secret code
 3. Create a CrosswordGUI instance and run() it
 4. Users can:
-   - Solve the puzzle interactively
+   - Solve the puzzle interactively with color-coded feedback
+   - Track progress and time spent
+   - Enter the secret code formed by highlighted cells
    - Check their answers
    - Preview the PDF
    - Export to PDF with custom title, description, and logos
@@ -43,7 +51,7 @@ import random
 import json
 import pandas as pd
 import sys
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import LETTER
 from reportlab.pdfgen import canvas as pdf_canvas
 from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
@@ -1091,7 +1099,18 @@ class CrosswordGUI:
                 return
 
     def create_pdf_content(self, c, width, height):
-        """Create the PDF content (used by both export and preview)."""
+        """
+        Create the PDF content (used by both export and preview).
+        
+        Generates a complete crossword puzzle PDF with:
+        - Title and custom description
+        - Trimmed grid with proper cell sizing
+        - Thin borders for normal cells, thick borders for secret code cells
+        - Secret code clue text along the left edge (vertical, black)
+        - Numbered cells for word starts
+        - ACROSS and DOWN clues with proper formatting
+        - Optional logos in bottom corners
+        """
         # Get user-entered title and description
         puzzle_title = self.title_entry.get() or "Crossword Puzzle"
         puzzle_description = self.description_entry.get('1.0', 'end-1c').strip() or ""
@@ -1134,6 +1153,7 @@ class CrosswordGUI:
         start_y = current_y - grid_height
         
         # Draw grid (only the trimmed portion)
+        # First pass: draw all cells with normal borders
         for r in range(min_row, max_row + 1):
             for col in range(min_col, max_col + 1):
                 x = start_x + (col - min_col) * cell_size
@@ -1143,10 +1163,8 @@ class CrosswordGUI:
                     # Skip black cells - don't draw them
                     continue
                 else:
-                    # Check if this is a secret cell - use thicker border
-                    is_secret = (r, col) in self.secret_cells
-                    c.setLineWidth(2 if is_secret else 0.5)
-                    
+                    # Draw cell with thin border
+                    c.setLineWidth(0.5)
                     c.setFillColorRGB(1, 1, 1)
                     c.rect(x, y, cell_size, cell_size, fill=1, stroke=1)
                     c.setFillColorRGB(0, 0, 0)
@@ -1156,16 +1174,24 @@ class CrosswordGUI:
                         c.setFont("Helvetica-Bold", num_font_size)
                         c.drawString(x + 2, y + cell_size - num_font_size - 1, str(self.number_map[(r, col)]))
         
+        # Second pass: draw thick borders around secret cells
+        c.setLineWidth(2)
+        for r, col in self.secret_cells:
+            if min_row <= r <= max_row and min_col <= col <= max_col:
+                x = start_x + (col - min_col) * cell_size
+                y = start_y + (max_row - r) * cell_size
+                c.rect(x, y, cell_size, cell_size, fill=0, stroke=1)
+        
         # Draw clues
         clues_start_y = start_y - 8
         
         # Draw vertical "The secret code:" text on the left side (counter-clockwise)
         c.saveState()
-        c.translate(30, clues_start_y - 50)  # Position at same x as ACROSS clues
+        c.translate(10, clues_start_y - 10)  # Position closer to edge (was 30, now 10)
         c.rotate(90)  # Rotate counter-clockwise
-        c.setFont("Helvetica-Bold", 9)
-        c.setFillColorRGB(0.6, 0, 0.6)  # Purple color
-        c.drawString(0, 0, self.secret_clue.split(':')[1].strip()[:50] + "...")  # Truncate clue
+        c.setFont("Helvetica-Bold", 6)  # Smaller font (was 9, now 6)
+        c.setFillColorRGB(0, 0, 0)  # Black color
+        c.drawString(0, 0, self.secret_clue[:230])  # Show full text including "The secret code:"
         c.restoreState()
         
         # Draw description on the right side between logos and ACROSS clues
@@ -1233,7 +1259,12 @@ class CrosswordGUI:
                 pass
     
     def preview_pdf(self):
-        """Generate a preview of the PDF and open it."""
+        """
+        Generate a preview of the PDF and open it.
+        
+        Creates a temporary PDF file with the current puzzle configuration
+        and opens it in the system's default PDF viewer for preview.
+        """
         try:
             # Create a temporary PDF file
             temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
@@ -1241,8 +1272,8 @@ class CrosswordGUI:
             temp_file.close()
             
             # Generate PDF
-            c = pdf_canvas.Canvas(temp_filename, pagesize=A4)
-            width, height = A4
+            c = pdf_canvas.Canvas(temp_filename, pagesize=LETTER)
+            width, height = LETTER
             self.create_pdf_content(c, width, height)
             c.save()
             
@@ -1256,10 +1287,12 @@ class CrosswordGUI:
         """
         Export the crossword puzzle to a PDF file.
         
-        Creates an A4-sized PDF with:
+        Creates a US Letter-sized (8.5" × 11") PDF with:
         - Custom title at top
         - Trimmed crossword grid (no excess black cells)
         - Numbered cells matching the clues
+        - Secret code cells marked with thick borders
+        - Secret code clue displayed vertically on the left edge
         - ACROSS and DOWN clues in two columns
         - Custom description at bottom
         - Optional logos in bottom corners
@@ -1276,9 +1309,9 @@ class CrosswordGUI:
             return
         
         try:
-            # A4 size in points (595 x 842)
-            c = pdf_canvas.Canvas(filename, pagesize=A4)
-            width, height = A4
+            # LETTER size in points (612 x 792)
+            c = pdf_canvas.Canvas(filename, pagesize=LETTER)
+            width, height = LETTER
             
             self.create_pdf_content(c, width, height)
             
