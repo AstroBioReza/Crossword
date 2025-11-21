@@ -219,7 +219,10 @@ def generate_crossword(words_and_clues, height=15, width=15, is_csv=False):
 
 def select_secret_cells(gen, secret_word):
     """
-    Randomly select cells from the puzzle grid to form the secret word.
+    Select cells from the puzzle grid that contain the letters to spell the secret word.
+    
+    This function finds cells in the crossword that contain each letter of the secret word,
+    ensuring that the highlighted cells actually spell out the secret word when read.
     
     Parameters:
     -----------
@@ -231,24 +234,28 @@ def select_secret_cells(gen, secret_word):
     Returns:
     --------
     list of tuple
-        List of (row, col) coordinates for cells that spell the secret word,
-        or empty list if not enough cells available
+        List of (row, col) coordinates for cells that contain the letters of the secret word,
+        or empty list if not enough matching cells available
     """
-    # Collect all non-black cells
-    available_cells = []
-    for r in range(gen.height):
-        for c in range(gen.width):
-            if gen.grid[r][c] != '#':
-                available_cells.append((r, c))
+    selected_cells = []
     
-    # Check if we have enough cells
-    if len(available_cells) < len(secret_word):
-        print(f"Warning: Not enough cells for secret word. Need {len(secret_word)}, have {len(available_cells)}")
-        return []
-    
-    # Randomly select cells for each letter of the secret word
-    random.shuffle(available_cells)
-    selected_cells = available_cells[:len(secret_word)]
+    # For each letter in the secret word, find a cell containing that letter
+    for letter in secret_word:
+        # Collect all cells that contain this letter and haven't been selected yet
+        available_cells = []
+        for r in range(gen.height):
+            for c in range(gen.width):
+                if gen.grid[r][c] == letter and (r, c) not in selected_cells:
+                    available_cells.append((r, c))
+        
+        # If no cells available with this letter, we can't complete the secret word
+        if not available_cells:
+            print(f"Warning: Could not find cell with letter '{letter}' for secret word '{secret_word}'")
+            return []
+        
+        # Randomly select one cell with this letter
+        selected_cell = random.choice(available_cells)
+        selected_cells.append(selected_cell)
     
     return selected_cells
 
@@ -625,12 +632,13 @@ class CrosswordGUI:
                     # White cell for a letter
                     # Check if this is a secret cell
                     is_secret_cell = (r, c) in self.secret_cells
-                    bg_color = '#ADD8E6' if is_secret_cell else 'white'  # Light blue for secret cells
                     
                     # Entry box for user input (create FIRST so number appears on top)
+                    # Secret cells have red border, normal cells have gray border
                     entry = tk.Entry(cell_frame, width=2, font=('Arial', 14, 'bold'), justify='center', 
-                                     bd=0, highlightthickness=1, highlightbackground='gray',
-                                     relief='flat', takefocus=True, bg=bg_color) 
+                                     bd=0, highlightthickness=2 if is_secret_cell else 1, 
+                                     highlightbackground='red' if is_secret_cell else 'gray',
+                                     relief='flat', takefocus=True, bg='white') 
                     entry.pack(expand=True, fill='both', padx=4, pady=4)
                     self.entries[r][c] = entry
                     
@@ -792,9 +800,8 @@ class CrosswordGUI:
                 for c in range(self.gen.width):
                     if self.entries[r][c] is not None:
                         self.entries[r][c].delete(0, tk.END)
-                        # Restore light blue for secret cells, white for others
-                        is_secret = (r, c) in self.secret_cells
-                        self.entries[r][c].config(bg='#ADD8E6' if is_secret else 'white')
+                        # Restore white background for all cells (border remains red for secret cells)
+                        self.entries[r][c].config(bg='white')
             self.secret_entry.delete(0, tk.END)
             self.update_progress()
     
@@ -863,9 +870,8 @@ class CrosswordGUI:
         for r in range(self.gen.height):
             for c in range(self.gen.width):
                 if self.gen.grid[r][c] != '#' and not self.entries[r][c].get().strip() and self.entries[r][c].cget('bg') != 'lightgray':
-                    # Restore light blue for secret cells, white for others
-                    is_secret = (r, c) in self.secret_cells
-                    self.entries[r][c].config(bg='#ADD8E6' if is_secret else 'white')
+                    # Restore white background (border remains red for secret cells)
+                    self.entries[r][c].config(bg='white')
         
         # Check secret code
         secret_correct = self.secret_entry.get().strip().upper() == self.secret_word
@@ -1013,13 +1019,11 @@ class CrosswordGUI:
                         elif current_bg == '#FFC0CB':  # Keep incorrect answers pink
                             continue
                         else:
-                            # Restore light blue for secret cells, white for others
-                            is_secret = (r, c) in self.secret_cells
-                            self.entries[r][c].config(bg='#ADD8E6' if is_secret else 'white')
-                    elif current_bg not in ['lightgray', 'black', '#ADD8E6']:
-                        # Restore light blue for secret cells, white for others
-                        is_secret = (r, c) in self.secret_cells
-                        self.entries[r][c].config(bg='#ADD8E6' if is_secret else 'white')
+                            # Restore white background (border remains red for secret cells)
+                            self.entries[r][c].config(bg='white')
+                    elif current_bg not in ['lightgray', 'black']:
+                        # Restore white background (border remains red for secret cells)
+                        self.entries[r][c].config(bg='white')
         
         # Get clues for this cell
         cell_clues = self.cell_to_clues.get((row, col), [])
@@ -1138,8 +1142,8 @@ class CrosswordGUI:
         trimmed_width = max_col - min_col + 1
         
         # Calculate grid dimensions
-        max_grid_width = width - 40
-        max_grid_height = 650
+        max_grid_width = (width - 40) * 0.85
+        max_grid_height = 650 * 0.85
         
         cell_size = min(
             max_grid_width / trimmed_width,
@@ -1187,7 +1191,7 @@ class CrosswordGUI:
         
         # Draw vertical "The secret code:" text on the left side (counter-clockwise)
         c.saveState()
-        c.translate(10, clues_start_y - 10)  # Position closer to edge (was 30, now 10)
+        c.translate(10, 110)  # Position near bottom of page (20 points from bottom edge)
         c.rotate(90)  # Rotate counter-clockwise
         c.setFont("Helvetica-Bold", 6)  # Smaller font (was 9, now 6)
         c.setFillColorRGB(0, 0, 0)  # Black color
@@ -1215,9 +1219,9 @@ class CrosswordGUI:
         for clue in self.across_clues:
             if y_position < 8:  # Lower threshold to fit more clues
                 break
-            # Properly truncate to fit width
+            # Properly truncate to fit width - use correct font size (7.5)
             truncated = clue
-            while c.stringWidth(truncated, "Helvetica", 6) > max_clue_width and len(truncated) > 10:
+            while c.stringWidth(truncated, "Helvetica", 7.5) > max_clue_width and len(truncated) > 10:
                 truncated = truncated[:-4] + "..."
             c.drawString(30, y_position, truncated)
             y_position -= 8.5  # Tighter spacing
@@ -1231,9 +1235,9 @@ class CrosswordGUI:
         for clue in self.down_clues:
             if y_position < 55:  # Lower threshold to fit more clues
                 break
-            # Properly truncate to fit width
+            # Properly truncate to fit width - use correct font size (7.5)
             truncated = clue
-            while c.stringWidth(truncated, "Helvetica", 6) > max_clue_width and len(truncated) > 10:
+            while c.stringWidth(truncated, "Helvetica", 7.5) > max_clue_width and len(truncated) > 10:
                 truncated = truncated[:-4] + "..."
             c.drawString(width / 2 + 10, y_position, truncated)
             y_position -= 8.5  # Tighter spacing
