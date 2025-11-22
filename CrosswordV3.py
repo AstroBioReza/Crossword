@@ -517,52 +517,19 @@ class CrosswordGUI:
         self.secret_clue = SECRET_CLUE
         self.secret_cells = gen.secret_cells if hasattr(gen, 'secret_cells') else []
         
-        # Add title and description fields at the top
-        top_frame = tk.Frame(self.root, bg='white', padx=10, pady=5)
-        top_frame.pack(fill='x')
-        
-        tk.Label(top_frame, text="Puzzle Title:", font=('Arial', 10, 'bold'), bg='white').grid(row=0, column=0, sticky='w', pady=2)
-        self.title_entry = tk.Entry(top_frame, font=('Arial', 10), width=50)
-        self.title_entry.grid(row=0, column=1, sticky='ew', pady=2)
-        self.title_entry.insert(0, "Astrobiology Crossword")
-        
-        tk.Label(top_frame, text="Description:", font=('Arial', 10, 'bold'), bg='white').grid(row=1, column=0, sticky='nw', pady=2)
-        desc_frame = tk.Frame(top_frame, bg='white')
-        desc_frame.grid(row=1, column=1, sticky='ew', pady=2)
-        self.description_entry = tk.Text(desc_frame, font=('Arial', 9), width=50, height=2, wrap='word')
-        self.description_entry.pack(fill='both', expand=True)
-        self.description_entry.insert('1.0', "Designed by M. Reza Shahjahan\nGithub.com/AstroBioReza/Crossword")
-        
-        # Logo selection fields
-        tk.Label(top_frame, text="Left Logo:", font=('Arial', 10, 'bold'), bg='white').grid(row=2, column=0, sticky='w', pady=2)
-        logo_left_frame = tk.Frame(top_frame, bg='white')
-        logo_left_frame.grid(row=2, column=1, sticky='ew', pady=2)
-        self.left_logo_path = tk.StringVar(value="")
-        tk.Entry(logo_left_frame, textvariable=self.left_logo_path, font=('Arial', 9), state='readonly').pack(side='left', fill='x', expand=True)
-        tk.Button(logo_left_frame, text="Browse", command=lambda: self.select_logo('left'), font=('Arial', 8)).pack(side='left', padx=(5, 0))
-        
-        tk.Label(top_frame, text="Right Logo:", font=('Arial', 10, 'bold'), bg='white').grid(row=3, column=0, sticky='w', pady=2)
-        logo_right_frame = tk.Frame(top_frame, bg='white')
-        logo_right_frame.grid(row=3, column=1, sticky='ew', pady=2)
-        self.right_logo_path = tk.StringVar(value="")
-        tk.Entry(logo_right_frame, textvariable=self.right_logo_path, font=('Arial', 9), state='readonly').pack(side='left', fill='x', expand=True)
-        tk.Button(logo_right_frame, text="Browse", command=lambda: self.select_logo('right'), font=('Arial', 8)).pack(side='left', padx=(5, 0))
-        
-        top_frame.grid_columnconfigure(1, weight=1)
-        
         # Use PanedWindow for resizable sections
         paned_window = tk.PanedWindow(self.root, orient='horizontal', sashrelief='raised', sashwidth=5)
         paned_window.pack(fill='both', expand=True, padx=10, pady=10)
         
-        # Left side: puzzle and button
+        # Left side: puzzle only (no controls)
         left_frame = tk.Frame(paned_window)
         paned_window.add(left_frame, stretch='always')
         
-        # Right side: clues
-        clues_container = tk.Frame(paned_window)
-        paned_window.add(clues_container, stretch='always')
+        # Right side: controls and clues
+        right_container = tk.Frame(paned_window)
+        paned_window.add(right_container, stretch='always')
         
-        # Create puzzle area with scrollbars in left frame
+        # Create puzzle area with scrollbars in left frame (no controls above or below)
         puzzle_frame = tk.Frame(left_frame)
         puzzle_frame.pack(fill='both', expand=True)
         
@@ -685,6 +652,48 @@ class CrosswordGUI:
         self.across_clues = across
         self.down_clues = down
         
+        # --- 4. Title, Description, and Logo fields (at top of right side) ---
+        controls_top_frame = tk.Frame(right_container, bg='white', padx=5, pady=5)
+        controls_top_frame.pack(fill='x', pady=(0, 10))
+        
+        tk.Label(controls_top_frame, text="Puzzle Title:", font=('Arial', 9, 'bold'), bg='white').grid(row=0, column=0, sticky='w', pady=2)
+        self.title_entry = tk.Entry(controls_top_frame, font=('Arial', 9), width=30)
+        self.title_entry.grid(row=0, column=1, sticky='ew', pady=2)
+        self.title_entry.insert(0, "Astrobiology Crossword")
+        
+        tk.Label(controls_top_frame, text="Description:", font=('Arial', 9, 'bold'), bg='white').grid(row=1, column=0, sticky='nw', pady=2)
+        self.description_entry = tk.Text(controls_top_frame, font=('Arial', 8), width=30, height=2, wrap='word')
+        self.description_entry.grid(row=1, column=1, sticky='ew', pady=2)
+        self.description_entry.insert('1.0', "Designed by M. Reza Shahjahan\nGithub.com/AstroBioReza/Crossword")
+        
+        tk.Label(controls_top_frame, text="Left Logo:", font=('Arial', 9, 'bold'), bg='white').grid(row=2, column=0, sticky='w', pady=2)
+        logo_left_frame = tk.Frame(controls_top_frame, bg='white')
+        logo_left_frame.grid(row=2, column=1, sticky='ew', pady=2)
+        self.left_logo_path = tk.StringVar(value="")
+        tk.Entry(logo_left_frame, textvariable=self.left_logo_path, font=('Arial', 8), state='readonly').pack(side='left', fill='x', expand=True)
+        tk.Button(logo_left_frame, text="Browse", command=lambda: self.select_logo('left'), font=('Arial', 7)).pack(side='left', padx=(3, 0))
+        
+        tk.Label(controls_top_frame, text="Right Logo:", font=('Arial', 9, 'bold'), bg='white').grid(row=3, column=0, sticky='w', pady=2)
+        logo_right_frame = tk.Frame(controls_top_frame, bg='white')
+        logo_right_frame.grid(row=3, column=1, sticky='ew', pady=2)
+        self.right_logo_path = tk.StringVar(value="")
+        tk.Entry(logo_right_frame, textvariable=self.right_logo_path, font=('Arial', 8), state='readonly').pack(side='left', fill='x', expand=True)
+        tk.Button(logo_right_frame, text="Browse", command=lambda: self.select_logo('right'), font=('Arial', 7)).pack(side='left', padx=(3, 0))
+        
+        controls_top_frame.grid_columnconfigure(1, weight=1)
+        
+        # Progress and Timer (in one line)
+        progress_frame = tk.Frame(right_container, bg='white')
+        progress_frame.pack(fill='x', pady=(0, 5))
+        
+        self.progress_label = tk.Label(progress_frame, text="Progress: 0%", font=('Arial', 8, 'bold'), bg='#E3F2FD', fg='#1976D2', pady=2)
+        self.progress_label.pack(side='left', fill='x', expand=True, padx=(0, 2))
+        self.update_progress()
+        
+        self.timer_label = tk.Label(progress_frame, text="Time: 00:00:00", font=('Arial', 8, 'bold'), bg='#FFF3E0', fg='#E65100', pady=2)
+        self.timer_label.pack(side='left', fill='x', expand=True, padx=(2, 0))
+        self.update_timer()
+        
         # Create mapping from cell positions to clue numbers and words
         self.cell_to_clues = {}  # Maps (row, col) to list of (clue_num, direction)
         self.cell_to_words = {}  # Maps (row, col) to list of word cell positions
@@ -707,9 +716,12 @@ class CrosswordGUI:
                     self.cell_to_words[(r, c)] = {}
                 self.cell_to_words[(r, c)][direction] = word_cells
 
-        # Add scrollable clues section
-        clues_canvas = tk.Canvas(clues_container, bg='white')
-        clues_scrollbar = tk.Scrollbar(clues_container, orient='vertical', command=clues_canvas.yview)
+        # Add scrollable clues section (middle of right side)
+        clues_scroll_container = tk.Frame(right_container)
+        clues_scroll_container.pack(fill='both', expand=True, pady=(0, 10))
+        
+        clues_canvas = tk.Canvas(clues_scroll_container, bg='white')
+        clues_scrollbar = tk.Scrollbar(clues_scroll_container, orient='vertical', command=clues_canvas.yview)
         clues_frame = tk.Frame(clues_canvas, bg='white')
         
         clues_canvas.create_window((0, 0), window=clues_frame, anchor='nw')
@@ -733,8 +745,8 @@ class CrosswordGUI:
             self.root.unbind_all("<MouseWheel>")
         
         # Bind mouse enter/leave events for clues area
-        clues_container.bind("<Enter>", enable_clues_scroll)
-        clues_container.bind("<Leave>", disable_clues_scroll)
+        clues_scroll_container.bind("<Enter>", enable_clues_scroll)
+        clues_scroll_container.bind("<Leave>", disable_clues_scroll)
         clues_canvas.bind("<Enter>", enable_clues_scroll)
         clues_canvas.bind("<Leave>", disable_clues_scroll)
         
@@ -755,42 +767,32 @@ class CrosswordGUI:
             label.pack(anchor='nw')
             self.clue_labels[(clue_num, 'down')] = label
 
-        # --- 4. Progress Tracking ---
-        self.progress_label = tk.Label(left_frame, text="Progress: 0%", font=('Arial', 10, 'bold'), bg='#E3F2FD', fg='#1976D2', pady=5)
-        self.progress_label.pack(fill='x', pady=(10, 5))
-        self.update_progress()
-        
-        # Timer display
-        self.timer_label = tk.Label(left_frame, text="Time: 00:00:00", font=('Arial', 10, 'bold'), bg='#FFF3E0', fg='#E65100', pady=5)
-        self.timer_label.pack(fill='x', pady=(0, 5))
-        self.update_timer()
-        
-        # Secret Code input section
-        secret_frame = tk.Frame(left_frame, bg='#F3E5F5', pady=5, padx=5)
-        secret_frame.pack(fill='x', pady=(5, 0))
+        # --- 5. Secret Code (below clues) ---
+        secret_frame = tk.Frame(right_container, bg='#F3E5F5', pady=5, padx=5)
+        secret_frame.pack(fill='x', pady=(10, 0))
         
         secret_button = tk.Button(secret_frame, text="The Secret Code", command=self.show_secret_clue, 
-                                   bg="#9C27B0", fg="white", font=('Arial', 10, 'bold'), width=15)
+                                   bg="#9C27B0", fg="white", font=('Arial', 9, 'bold'), width=15)
         secret_button.pack(side='left', padx=(0, 5))
         
-        self.secret_entry = tk.Entry(secret_frame, font=('Arial', 10), width=20)
+        self.secret_entry = tk.Entry(secret_frame, font=('Arial', 9), width=20)
         self.secret_entry.pack(side='left', fill='x', expand=True)
         self.secret_entry.bind('<KeyRelease>', lambda e: self.check_secret_code())
         
-        # --- 5. Buttons (under the puzzle on the left) ---
-        buttons_frame = tk.Frame(left_frame)
+        # --- 6. Buttons (at bottom of right side) ---
+        buttons_frame = tk.Frame(right_container)
         buttons_frame.pack(fill='x', pady=(5, 0))
         
-        clear_button = tk.Button(buttons_frame, text="Clear All", command=self.clear_all, bg="#F44336", fg="white", font=('Arial', 10, 'bold'))
-        clear_button.pack(side='left', fill='x', expand=True, padx=(0, 5))
+        clear_button = tk.Button(buttons_frame, text="Clear All", command=self.clear_all, bg="#F44336", fg="white", font=('Arial', 9, 'bold'))
+        clear_button.pack(side='left', fill='x', expand=True, padx=(0, 3))
         
-        check_button = tk.Button(buttons_frame, text="Check Answers", command=self.check, bg="#4CAF50", fg="white", font=('Arial', 10, 'bold'))
-        check_button.pack(side='left', fill='x', expand=True, padx=(0, 5))
+        check_button = tk.Button(buttons_frame, text="Check Answers", command=self.check, bg="#4CAF50", fg="white", font=('Arial', 9, 'bold'))
+        check_button.pack(side='left', fill='x', expand=True, padx=(0, 3))
         
-        preview_button = tk.Button(buttons_frame, text="Preview PDF", command=self.preview_pdf, bg="#FF9800", fg="white", font=('Arial', 10, 'bold'))
-        preview_button.pack(side='left', fill='x', expand=True, padx=(0, 5))
+        preview_button = tk.Button(buttons_frame, text="Preview PDF", command=self.preview_pdf, bg="#FF9800", fg="white", font=('Arial', 9, 'bold'))
+        preview_button.pack(side='left', fill='x', expand=True, padx=(0, 3))
         
-        pdf_button = tk.Button(buttons_frame, text="Export to PDF", command=self.export_to_pdf, bg="#2196F3", fg="white", font=('Arial', 10, 'bold'))
+        pdf_button = tk.Button(buttons_frame, text="Export to PDF", command=self.export_to_pdf, bg="#2196F3", fg="white", font=('Arial', 9, 'bold'))
         pdf_button.pack(side='left', fill='x', expand=True)
 
     def clear_all(self):
@@ -1196,6 +1198,22 @@ class CrosswordGUI:
         c.setFont("Helvetica-Bold", 6)  # Smaller font (was 9, now 6)
         c.setFillColorRGB(0, 0, 0)  # Black color
         c.drawString(0, 0, self.secret_clue[:230])  # Show full text including "The secret code:"
+        c.restoreState()
+        
+        # Draw all words on the right side (vertical, rotated 90 degrees)
+        all_words = []
+        for p in self.gen.placements:
+            word = p[3]  # Get the word from placement tuple
+            if word not in all_words:
+                all_words.append(word)
+        words_string = "-".join([w.lower() for w in all_words])
+        
+        c.saveState()
+        c.translate(width - 5, 7)  # Position on right side
+        c.rotate(90)  # Rotate counter-clockwise
+        c.setFont("Helvetica", 4)  # Small font size
+        c.setFillColorRGB(0, 0, 0)  # Black color
+        c.drawString(0, 0, words_string)
         c.restoreState()
         
         # Draw description on the right side between logos and ACROSS clues
