@@ -1268,7 +1268,7 @@ class CrosswordGUI:
         left_logo = self.left_logo_path.get()
         if left_logo and os.path.exists(left_logo):
             try:
-                c.drawImage(left_logo, width - 10 - (logo_size * 2) - 5, logo_y, width=logo_size, height=logo_size, preserveAspectRatio=True, mask='auto')
+                c.drawImage(left_logo, width - 15 - (logo_size * 2) - 5, logo_y, width=logo_size, height=logo_size, preserveAspectRatio=True, mask='auto')
             except:
                 pass
         
@@ -1276,7 +1276,7 @@ class CrosswordGUI:
         right_logo = self.right_logo_path.get()
         if right_logo and os.path.exists(right_logo):
             try:
-                c.drawImage(right_logo, width - 10 - logo_size, logo_y, width=logo_size, height=logo_size, preserveAspectRatio=True, mask='auto')
+                c.drawImage(right_logo, width - 15 - logo_size, logo_y, width=logo_size, height=logo_size, preserveAspectRatio=True, mask='auto')
             except:
                 pass
     
