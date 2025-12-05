@@ -22,7 +22,7 @@ Main Components:
 ----------------
 - CrosswordGenerator: Core logic for generating crossword grids with secret cell selection
 - CrosswordGUI: Tkinter-based interactive interface with secret code input
-- PDF Export: ReportLab-based PDF generation with US Letter (8.5" × 11") formatting
+- PDF Export: ReportLab-based PDF generation with US Letter (8.5" x 11") formatting
 
 Usage:
 ------
@@ -1144,8 +1144,8 @@ class CrosswordGUI:
         trimmed_width = max_col - min_col + 1
         
         # Calculate grid dimensions
-        max_grid_width = (width - 40) * 0.85
-        max_grid_height = 650 * 0.85
+        max_grid_width = (width - 50) * 1 #Puzzle area width
+        max_grid_height = 660 * 1         #Puzzle area height
         
         cell_size = min(
             max_grid_width / trimmed_width,
@@ -1211,7 +1211,7 @@ class CrosswordGUI:
         c.saveState()
         c.translate(width - 5, 7)  # Position on right side
         c.rotate(90)  # Rotate counter-clockwise
-        c.setFont("Helvetica", 4)  # Small font size
+        c.setFont("Helvetica-Bold", 4.5)  # Small font size
         c.setFillColorRGB(0, 0, 0)  # Black color
         c.drawString(0, 0, words_string)
         c.restoreState()
@@ -1230,32 +1230,32 @@ class CrosswordGUI:
         c.setFont("Helvetica-Bold", 9)
         c.drawString(30, clues_start_y, "ACROSS")
         
-        c.setFont("Helvetica", 7.5)
+        c.setFont("Helvetica", 6.9) #clues font size in 1233,1242,1250,1258 is 6.9
         y_position = clues_start_y - 10
         max_clue_width = (width / 2) - 60  # Maximum width for clues
         
         for clue in self.across_clues:
-            if y_position < 8:  # Lower threshold to fit more clues
+            if y_position < 10:  # Lower threshold to fit more clues
                 break
             # Properly truncate to fit width - use correct font size (7.5)
             truncated = clue
-            while c.stringWidth(truncated, "Helvetica", 7.5) > max_clue_width and len(truncated) > 10:
+            while c.stringWidth(truncated, "Helvetica", 6.9) > max_clue_width and len(truncated) > 10: 
                 truncated = truncated[:-4] + "..."
             c.drawString(30, y_position, truncated)
-            y_position -= 8.5  # Tighter spacing
+            y_position -= 10  # Tighter spacing
         
         c.setFont("Helvetica-Bold", 9)
         c.drawString(width / 2 + 10, clues_start_y, "DOWN")
         
-        c.setFont("Helvetica", 7.5)
+        c.setFont("Helvetica", 6.9)
         y_position = clues_start_y - 12
         
         for clue in self.down_clues:
-            if y_position < 55:  # Lower threshold to fit more clues
+            if y_position < 68:  # Lower threshold to fit more clues
                 break
             # Properly truncate to fit width - use correct font size (7.5)
             truncated = clue
-            while c.stringWidth(truncated, "Helvetica", 7.5) > max_clue_width and len(truncated) > 10:
+            while c.stringWidth(truncated, "Helvetica", 6.9) > max_clue_width and len(truncated) > 10:
                 truncated = truncated[:-4] + "..."
             c.drawString(width / 2 + 10, y_position, truncated)
             y_position -= 8.5  # Tighter spacing
@@ -1420,7 +1420,7 @@ if __name__ == "__main__":
     else:
         print("No CSV file provided. Using default word list.")
         # Define your words and clues as (word, clue) tuples
-        words_and_clues_list = [
+        all_default_words = [
         ("NaturalSelection", "The process by which organisms become better adapted to their environment."),
         ("Exoplanet", "The name of a planet that orbits another star."),
         ("Life", "a self-sustaining chemical system capable of undergoing Darwinian evolution."),
@@ -1470,8 +1470,22 @@ if __name__ == "__main__":
         ("Rogue", "A free-floating planet not orbiting any star."),
         ("Exomoon", "A natural satellite orbiting an exoplanet."),
         ("Hycean", "A hypothetical class of ocean-covered planets with hydrogen-rich atmospheres."),
-        ("Fermi", "The paradox asking Why no aliens detected despite billions of exoplanets?")
+        ("Fermi", "The paradox asking Why no aliens detected despite billions of exoplanets?"),
+        ("Albedo", "The measure of reflectivity of a surface or body."),
+        
         ]
+        
+        # Select 40 random words, ensuring REZA is always included
+        reza_entry = ("REZA", "The Creator of all of these!")
+        other_words = [w for w in all_default_words if w != reza_entry]
+        
+        # Randomly select 39 words from the remaining list
+        selected_words = random.sample(other_words, min(39, len(other_words)))
+        
+        # Add REZA to the selection
+        words_and_clues_list = [reza_entry] + selected_words
+        
+        print(f"Selected {len(words_and_clues_list)} random words from default list (including REZA)")
     
     # Set grid size based on your longest word (add some buffer space)
     GRID_SIZE = 40
