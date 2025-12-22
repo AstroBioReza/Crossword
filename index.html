@@ -269,6 +269,8 @@
         <button onclick="checkAnswers()" style="background:#4CAF50; color:white;">Check Answers</button>
         <button onclick="revealAnswers()" style="background:#FF9800; color:white;">Reveal Answers</button>
         <button onclick="clearGrid()" style="background:#F44336; color:white;">Clear Grid</button>
+        <br><br>
+        <label style="font-weight:bold;">Upload CSV (Word,Clue): <input type="file" id="csv-upload" accept=".csv" onchange="handleCSVUpload(event)" /></label>
     </div>
     
     <div id="secret-section">
@@ -280,7 +282,7 @@
     <div id="pdf-controls" style="display:none;">
         <h3>PDF Export Settings</h3>
         <input type="text" id="pdf-title" placeholder="Puzzle Title" value="Astrobiology Crossword" />
-        <textarea id="pdf-description" placeholder="Description">Designed by M.  Shahjahan - Github.com/AstroBioReza/Crossword</textarea>
+        <textarea id="pdf-description" placeholder="Description">Designed by M. Reza Shahjahan - Github.com/AstroBioReza/Crossword</textarea>
         <label style="display:block; margin:5px 0;">Left Logo (40x40px recommended): <input type="file" id="pdf-logo-left" accept="image/*" style="margin-left:5px;" /></label>
         <label style="display:block; margin:5px 0;">Right Logo (40x40px recommended): <input type="file" id="pdf-logo-right" accept="image/*" style="margin-left:5px;" /></label>
         <button onclick="exportToPDF()" style="background:#2196F3; color:white; padding:8px 16px;">📄 Export to PDF</button>
@@ -766,16 +768,17 @@
             }
         }
 
-        const words = [
+        // Default words and clues
+        let words = [
             "NaturalSelection", "Exoplanet", "Life", "Organism", "Water", "Sun", "Moon", "Biology",
             "Speciation", "Extremophile", "Metabolism", "Abiotic", "Autotroph", "Habitablezone", "Mariner",
             "Viking", "Murchison", "FruitFly", "Stromatolites", "Arecibo", "Panspermia", "Clay theory", "ASU",
             "ARC", "Biosphere", "GOE", "SETI", "REZA", "JamesWebb", "Curiosity",
             "Perseverance", "Ingenuity", "Titan", "Europa", "Enceladus", "Methane", "Volatile",
             "Hadean", "Homeostasis", "LUCA", "SuperEarth", "Rogue", "Exomoon", "Hycean", "Fermi", "Albedo"
-        ]; // Customize this list as needed
+        ];
 
-        const cluesMap = {
+        let cluesMap = {
             "NaturalSelection": "The process by which organisms become better adapted to their environment.",
             "Exoplanet": "The name of a planet that orbits another star.",
             "Life": "a self-sustaining chemical system capable of undergoing Darwinian evolution.",
@@ -829,10 +832,58 @@
             "Albedo": "The measure of reflectivity of a surface or body."
         };
 
-        const normalizedClues = {};
-        for (let key in cluesMap) {
-            const normKey = key.toUpperCase().replace(/\s/g, '');
-            normalizedClues[normKey] = cluesMap[key];
+
+        let normalizedClues = {};
+        function updateNormalizedClues() {
+            normalizedClues = {};
+            for (let key in cluesMap) {
+                const normKey = key.toUpperCase().replace(/\s/g, '');
+                normalizedClues[normKey] = cluesMap[key];
+            }
+        }
+        updateNormalizedClues();
+
+        // Handle CSV upload
+        function handleCSVUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                // Parse CSV: expect two columns per row: word,clue
+                const lines = text.split(/\r?\n/).filter(line => line.trim());
+                let newWords = [];
+                let newCluesMap = {};
+                for (let line of lines) {
+                    // Support comma inside quotes
+                    let match = line.match(/^\s*"([^"]+)"\s*,\s*"([^"]+)"\s*$/);
+                    if (match) {
+                        newWords.push(match[1]);
+                        newCluesMap[match[1]] = match[2];
+                        continue;
+                    }
+                    // Otherwise, simple split
+                    let parts = line.split(',');
+                    if (parts.length >= 2) {
+                        let word = parts[0].replace(/^"|"$/g, '').trim();
+                        let clue = parts.slice(1).join(',').replace(/^"|"$/g, '').trim();
+                        if (word && clue) {
+                            newWords.push(word);
+                            newCluesMap[word] = clue;
+                        }
+                    }
+                }
+                if (newWords.length > 0) {
+                    words = newWords;
+                    cluesMap = newCluesMap;
+                    updateNormalizedClues();
+                    generatePuzzle();
+                    alert('Custom words and clues loaded!');
+                } else {
+                    alert('No valid words/clues found in CSV.');
+                }
+            };
+            reader.readAsText(file);
         }
 
         let currentGrid = null;
@@ -1273,5 +1324,4 @@
     </script>
 </body>
 </html>
-
 
