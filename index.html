@@ -1,0 +1,1275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Crossword Puzzle Generator</title>
+    <!-- PDF Generation Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        :root {
+            --cell-size: 30px;
+            --border-color: #000;
+            --highlight-color: #f0f0f0;
+            --correct-color: #90ee90;
+            --incorrect-color: #ffcccb;
+            --secret-color: #ff0000;
+        }
+        body { font-family: Arial, sans-serif; text-align: center; padding: 10px; }
+        #controls { margin: 15px 0; }
+        #controls button { margin: 0 5px; padding: 8px 16px; cursor: pointer; font-weight: bold; }
+        #pdf-controls { margin: 10px auto; max-width: 800px; background: #f5f5f5; padding: 10px; border-radius: 5px; }
+        #pdf-controls input, #pdf-controls textarea { width: 100%; margin: 5px 0; padding: 5px; }
+        #pdf-controls textarea { height: 60px; resize: vertical; }
+        #pdf-controls button { margin: 5px; }
+        #progress-timer { margin: 10px 0; display: flex; justify-content: center; gap: 20px; }
+        .stat-box { background: #E3F2FD; padding: 8px 15px; border-radius: 5px; font-weight: bold; }
+        #secret-section { margin: 10px auto; max-width: 600px; background: #F3E5F5; padding: 10px; border-radius: 5px; }
+        #secret-input { padding: 8px; font-size: 14px; width: 200px; margin: 0 10px; }
+        #secret-input.correct { background: var(--correct-color); }
+        #container { display: flex; justify-content: center; align-items: flex-start; margin: 20px auto; gap: 20px; flex-wrap: nowrap; max-width: 95vw; }
+        #grid { display: grid; max-height: 80vh; overflow: auto; }
+        #clues { text-align: left; max-width: 450px; min-width: 350px; flex: 0 0 400px; display: flex; flex-direction: column; max-height: 80vh; overflow: auto; }
+        #across-clues, #down-clues { flex: 1; overflow: auto; margin-bottom: 20px; }
+        #clues h2 { margin-top: 0; }
+        #clues ul { list-style: none; padding: 0; }
+        #clues li { margin-bottom: 5px; cursor: pointer; padding: 2px; }
+        #clues li:hover { background: var(--highlight-color); }
+        .cell { width: var(--cell-size); height: var(--cell-size); border: 1px solid var(--border-color); position: relative; background: #fff; box-sizing: border-box; }
+        .black { background: #000; }
+        input.cell-input { width: 100%; height: 100%; border: none; text-transform: uppercase; text-align: center; font-size: 16px; padding: 0; background: transparent; box-sizing: border-box; }
+        input.cell-input:focus { outline: 2px solid #4a90e2; background: var(--highlight-color); }
+        input.cell-input.active-across { background: #e6f2ff; }
+        input.cell-input.active-down { background: #fff4e6; }
+        input.cell-input.correct { background: var(--correct-color); }
+        input.cell-input.incorrect { background: var(--incorrect-color); }
+        input.cell-input.secret-cell { border: 3px solid var(--secret-color) !important; }
+        input.cell-input.highlighted { background: #FFFF99; }
+        .number { position: absolute; top: 2px; left: 2px; font-size: 8px; pointer-events: none; z-index: 1; background: yellow; padding: 2px; }
+        .clue-item { cursor: pointer; padding: 5px; margin: 2px 0; border-radius: 3px; }
+        .clue-item:hover { background: #e0e0e0; }
+        .clue-item.active { background: #FFFF99; font-weight: bold; }
+        @media (max-width: 768px) {
+            #container { flex-direction: column; align-items: center; }
+            #clues { max-width: 100%; }
+        }
+        
+        /* Print-friendly styles matching Python PDF layout */
+        @media print {
+            @page {
+                size: letter;
+                margin: 0.35in;
+            }
+            
+            body { 
+                background: white;
+                margin: 0;
+                padding: 0;
+            }
+            
+            #controls, #progress-timer, #secret-section, button { display: none !important; }
+            
+            h1 { 
+                font-size: 16pt;
+                font-weight: bold;
+                margin: 0 0 8pt 0;
+                text-align: center;
+                page-break-after: avoid;
+            }
+            
+            /* Hide PDF controls completely */
+            #pdf-controls {
+                display: none !important;
+            }
+            
+            /* Container layout - Grid LEFT, Clues RIGHT */
+            #container { 
+                display: flex !important;
+                justify-content: flex-start !important;
+                align-items: flex-start !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                gap: 12pt !important;
+                page-break-inside: avoid;
+            }
+            
+            /* Grid styling - left side, empty boxes only */
+            #grid { 
+                max-height: none !important;
+                overflow: visible !important;
+                margin: 0 !important;
+                display: inline-grid !important;
+                flex-shrink: 0;
+                page-break-inside: avoid;
+                grid-auto-rows: 18pt !important;
+                grid-template-rows: repeat(auto-fill, 18pt) !important;
+            }
+            
+            /* Clues styling - right side, SINGLE COLUMN like Python PDF */
+            #clues { 
+                max-height: none !important;
+                overflow: visible !important;
+                max-width: none !important;
+                flex: 1;
+                display: block !important;
+                text-align: left !important;
+            }
+            
+            /* Clues sections - vertical stacking, NOT side by side */
+            #across-clues, #down-clues { 
+                break-inside: avoid;
+                margin-bottom: 8pt;
+                overflow: visible;
+                width: 100% !important;
+                display: block !important;
+            }
+            
+            #clues h2 {
+                font-size: 10pt;
+                font-weight: bold;
+                margin: 0 0 3pt 0;
+            }
+            
+            #clues ul {
+                list-style: none;
+                padding: 0;
+                margin: 0;
+            }
+            
+            /* Cell styling - EMPTY BOXES ONLY */
+            .cell { 
+                width: 18pt !important;
+                height: 18pt !important;
+                min-width: 18pt !important;
+                min-height: 18pt !important;
+                max-width: 18pt !important;
+                max-height: 18pt !important;
+                border: 0.5pt solid black !important;
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+                box-sizing: border-box;
+                flex-shrink: 0 !important;
+                page-break-inside: avoid;
+            }
+            
+            /* Hide input text - show empty boxes */
+            input.cell-input { 
+                border: none !important;
+                background: white !important;
+                font-size: 0 !important;
+                color: transparent !important;
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+                width: 100% !important;
+                height: 100% !important;
+                min-width: 18pt !important;
+                min-height: 18pt !important;
+            }
+            
+            /* Secret cells - thick border */
+            input.cell-input.secret-cell {
+                outline: 1.8pt solid black !important;
+                outline-offset: -1.2pt;
+            }
+            
+            /* Keep numbers visible */
+            .number {
+                background: yellow !important;
+                font-size: 4.5pt !important;
+                font-weight: bold;
+                padding: 0.3pt 0.8pt;
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+            }
+            
+            .clue-item { 
+                padding: 0;
+                margin: 0 0 1pt 0;
+                font-size: 6.5pt;
+                line-height: 1.25;
+                page-break-inside: avoid;
+            }
+            
+            .clue-item.active {
+                background: white !important;
+                font-weight: normal !important;
+            }
+            
+            /* Hide black cells completely */
+            .black { 
+                display: none !important;
+            }
+            
+            /* Print elements positioned via JavaScript */
+            .print-secret-clue {
+                position: fixed;
+                left: 8pt;
+                bottom: 120pt;
+                transform: rotate(90deg);
+                transform-origin: left bottom;
+                font-size: 6pt;
+                font-weight: bold;
+                width: 500pt;
+                white-space: nowrap;
+            }
+            
+            .print-word-list {
+                position: fixed;
+                right: 3pt;
+                bottom: 5pt;
+                transform: rotate(90deg);
+                transform-origin: right bottom;
+                font-size: 4.5pt;
+                font-weight: bold;
+                width: 700pt;
+                white-space: nowrap;
+            }
+            
+            .print-description {
+                position: fixed;
+                bottom: 45pt;
+                right: 30pt;
+                font-size: 6pt;
+                font-style: italic;
+                text-align: center;
+                width: 180pt;
+                line-height: 1.4;
+                white-space: pre-line;
+            }
+            
+            .print-logo-left {
+                position: fixed;
+                bottom: 8pt;
+                right: 60pt;
+                max-width: 40pt;
+                max-height: 40pt;
+            }
+            
+            .print-logo-right {
+                position: fixed;
+                bottom: 8pt;
+                right: 12pt;
+                max-width: 40pt;
+                max-height: 40pt;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Generated Interactive Crossword Puzzle</h1>
+    
+    <div id="progress-timer">
+        <div class="stat-box" id="progress-display">Progress: 0%</div>
+        <div class="stat-box" id="timer-display">Time: 00:00:00</div>
+    </div>
+    
+    <div id="controls">
+        <button onclick="generatePuzzle()" style="background:#2196F3; color:white;">Generate New Puzzle</button>
+        <button onclick="checkAnswers()" style="background:#4CAF50; color:white;">Check Answers</button>
+        <button onclick="revealAnswers()" style="background:#FF9800; color:white;">Reveal Answers</button>
+        <button onclick="clearGrid()" style="background:#F44336; color:white;">Clear Grid</button>
+    </div>
+    
+    <div id="secret-section">
+        <button onclick="showSecretClue()" style="background:#9C27B0; color:white; padding:8px 16px; font-weight:bold;">🔐 Secret Code Clue</button>
+        <input type="text" id="secret-input" placeholder="Enter secret code" onkeyup="checkSecretCode()" />
+        <span id="secret-feedback"></span>
+    </div>
+    
+    <div id="pdf-controls" style="display:none;">
+        <h3>PDF Export Settings</h3>
+        <input type="text" id="pdf-title" placeholder="Puzzle Title" value="Astrobiology Crossword" />
+        <textarea id="pdf-description" placeholder="Description">Designed by M. Reza Shahjahan\nGithub.com/AstroBioReza/Crossword</textarea>
+        <label style="display:block; margin:5px 0;">Left Logo (40x40px recommended): <input type="file" id="pdf-logo-left" accept="image/*" style="margin-left:5px;" /></label>
+        <label style="display:block; margin:5px 0;">Right Logo (40x40px recommended): <input type="file" id="pdf-logo-right" accept="image/*" style="margin-left:5px;" /></label>
+        <button onclick="exportToPDF()" style="background:#2196F3; color:white; padding:8px 16px;">📄 Export to PDF</button>
+        <button onclick="togglePDFControls()" style="background:#757575; color:white; padding:8px 16px;">Cancel</button>
+    </div>
+    
+    <button onclick="togglePDFControls()" style="margin:10px; background:#FF5722; color:white; padding:10px 20px; font-weight:bold;">📄 Setup PDF Export</button>
+    
+    <div id="container">
+        <div id="grid"></div>
+        <div id="clues"></div>
+    </div>
+
+    <script>
+        // Constants
+        const CELL_SIZE = 30;
+        const MAX_PLACEMENT_ATTEMPTS = 1000;
+        
+        // Secret code configuration
+        let SECRET_WORD = "EMERGENCE";
+        let SECRET_CLUE = "The secret code: A phenomenon where a system's complex, novel properties arise from the interactions of its simpler parts.";
+        let secretCells = [];
+        
+        // Timer and progress tracking
+        let startTime = null;
+        let timerInterval = null;
+        let timerStarted = false;
+        
+        class Direction {
+            static ACROSS = 'ACROSS';
+            static DOWN = 'DOWN';
+
+            static random() {
+                return Math.random() < 0.5 ? Direction.ACROSS : Direction.DOWN;
+            }
+
+            static getDeltas(dir) {
+                return dir === Direction.DOWN ? [1, 0] : [0, 1];
+            }
+        }
+
+        class GridWord {
+            constructor(word, r, c, direction) {
+                this.word = word.toUpperCase();
+                this.r = r;
+                this.c = c;
+                this.direction = direction;
+                this.length = word.length;
+            }
+        }
+
+        class Grid {
+            constructor(words) {
+                this.words = words.map(w => w.toUpperCase().replace(/\s/g, '')).filter(w => w);
+                this.shuffleArray(this.words);
+                this.placed = [];
+                this.gridCache = new Map(); // Cache for O(1) cell lookups: "r,c" -> letter
+                this.placeFirstWord();
+                this.buildGrid();
+                this.selectSecretCells();
+            }
+            
+            selectSecretCells() {
+                secretCells = [];
+                const secretWord = SECRET_WORD;
+                
+                for (let letter of secretWord) {
+                    const availableCells = [];
+                    for (let [key, value] of this.gridCache) {
+                        if (value === letter) {
+                            const [r, c] = key.split(',').map(Number);
+                            if (!secretCells.some(cell => cell[0] === r && cell[1] === c)) {
+                                availableCells.push([r, c]);
+                            }
+                        }
+                    }
+                    
+                    if (availableCells.length > 0) {
+                        const randomCell = availableCells[Math.floor(Math.random() * availableCells.length)];
+                        secretCells.push(randomCell);
+                    }
+                }
+                
+                console.log(`Secret cells selected: ${secretCells.length} cells for word "${secretWord}"`);
+            }
+
+            shuffleArray(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+            }
+
+            placeFirstWord() {
+                const firstWord = this.words.pop();
+                const direction = Direction.ACROSS; // Always place longest word horizontally
+                const gw = new GridWord(firstWord, 0, 0, direction);
+                this.placed.push(gw);
+                this.updateCache(gw);
+            }
+
+            updateCache(gridWord) {
+                const [deltaR, deltaC] = Direction.getDeltas(gridWord.direction);
+                for (let k = 0; k < gridWord.length; k++) {
+                    const r = gridWord.r + k * deltaR;
+                    const c = gridWord.c + k * deltaC;
+                    this.gridCache.set(`${r},${c}`, gridWord.word[k]);
+                }
+            }
+
+            buildGrid() {
+                let attempts = 0;
+                while (this.words.length > 0 && attempts < MAX_PLACEMENT_ATTEMPTS) {
+                    const word = this.words[this.words.length - 1];
+                    let placed = false;
+                    this.shuffleArray(this.placed);
+                    for (let existing of this.placed) {
+                        for (let i = 0; i < existing.word.length; i++) {
+                            const letter = existing.word[i];
+                            const positions = [];
+                            for (let pos = 0; pos < word.length; pos++) {
+                                if (word[pos] === letter) positions.push(pos);
+                            }
+                            for (let pos of positions) {
+                                const [deltaREx, deltaCEx] = Direction.getDeltas(existing.direction);
+                                const crossDir = existing.direction === Direction.ACROSS ? Direction.DOWN : Direction.ACROSS;
+                                const [deltaRCr, deltaCCr] = Direction.getDeltas(crossDir);
+                                const startR = existing.r + i * deltaREx - pos * deltaRCr;
+                                const startC = existing.c + i * deltaCEx - pos * deltaCCr;
+                                if (this.wordFits(word, startR, startC, crossDir)) {
+                                    const gw = new GridWord(word, startR, startC, crossDir);
+                                    this.placed.push(gw);
+                                    this.updateCache(gw);
+                                    this.words.pop();
+                                    placed = true;
+                                    break;
+                                }
+                            }
+                            if (placed) break;
+                        }
+                        if (placed) break;
+                    }
+                    if (!placed) {
+                        this.words.unshift(this.words.pop());
+                    }
+                    attempts++;
+                }
+                if (this.words.length > 0) {
+                    console.warn(`Could not place all words. Unplaced: ${this.words.join(', ')}`);
+                }
+            }
+
+            wordFits(word, startR, startC, direction) {
+                const [deltaR, deltaC] = Direction.getDeltas(direction);
+                const perpDelta = direction === Direction.ACROSS ? [1, 0] : [0, 1];
+                
+                // Check cell before word start
+                const beforeR = startR - deltaR;
+                const beforeC = startC - deltaC;
+                if (this.getCell(beforeR, beforeC) !== null) return false;
+                
+                for (let k = 0; k < word.length; k++) {
+                    const r = startR + k * deltaR;
+                    const c = startC + k * deltaC;
+                    const current = this.getCell(r, c);
+                    
+                    // Must match if cell already has a letter
+                    if (current !== null && current !== word[k]) {
+                        return false;
+                    }
+                    
+                    // If cell is empty, check perpendicular cells to prevent touching
+                    if (current === null) {
+                        const perpR1 = r + perpDelta[0];
+                        const perpC1 = c + perpDelta[1];
+                        const perpR2 = r - perpDelta[0];
+                        const perpC2 = c - perpDelta[1];
+                        if (this.getCell(perpR1, perpC1) !== null || 
+                            this.getCell(perpR2, perpC2) !== null) {
+                            return false;
+                        }
+                    }
+                }
+                
+                // Check cell after word end
+                const afterR = startR + word.length * deltaR;
+                const afterC = startC + word.length * deltaC;
+                return this.getCell(afterR, afterC) === null;
+            }
+
+            getCell(r, c) {
+                return this.gridCache.get(`${r},${c}`) || null;
+            }
+
+            getBounds() {
+                let minR = Math.min(...this.placed.map(gw => gw.r));
+                let minC = Math.min(...this.placed.map(gw => gw.c));
+                let maxR = Math.max(...this.placed.map(gw => gw.r + (gw.length - 1) * (gw.direction === Direction.DOWN ? 1 : 0)));
+                let maxC = Math.max(...this.placed.map(gw => gw.c + (gw.length - 1) * (gw.direction === Direction.ACROSS ? 1 : 0)));
+                return [minR, minC, maxR, maxC];
+            }
+
+            // FIXED: clue generation now uses placed words instead of arbitrary letter runs
+            renderGrid() {
+                const [minR, minC, maxR, maxC] = this.getBounds();
+                const rows = maxR - minR + 1;
+                const cols = maxC - minC + 1;
+                const gridDiv = document.getElementById('grid');
+                gridDiv.innerHTML = '';
+                gridDiv.style.gridTemplateColumns = `repeat(${cols}, ${CELL_SIZE}px)`;
+                
+                // Track current direction for context-aware navigation
+                let currentDirection = Direction.ACROSS;
+
+                // Determine which cells are white (contain a letter)
+                const isWhite = Array.from({length: rows}, () => Array(cols).fill(false));
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        isWhite[r][c] = this.getCell(r + minR, c + minC) !== null;
+                    }
+                }
+
+                // Map of starting positions to placed words (across/down)
+                const startMap = Array.from({ length: rows }, () =>
+                    Array.from({ length: cols }, () => ({ across: null, down: null }))
+                );
+                
+                // Map each cell to the words it belongs to
+                const cellWords = Array.from({ length: rows }, () =>
+                    Array.from({ length: cols }, () => ({ across: null, down: null }))
+                );
+
+                for (let gw of this.placed) {
+                    const r = gw.r - minR;
+                    const c = gw.c - minC;
+                    if (r < 0 || r >= rows || c < 0 || c >= cols) continue;
+                    if (gw.direction === Direction.ACROSS) {
+                        startMap[r][c].across = gw;
+                        // Mark all cells in this across word
+                        for (let i = 0; i < gw.length; i++) {
+                            const cellC = c + i;
+                            if (cellC < cols) cellWords[r][cellC].across = gw;
+                        }
+                    } else {
+                        startMap[r][c].down = gw;
+                        // Mark all cells in this down word
+                        for (let i = 0; i < gw.length; i++) {
+                            const cellR = r + i;
+                            if (cellR < rows) cellWords[cellR][c].down = gw;
+                        }
+                    }
+                }
+
+                const numberMap = Array.from({length: rows}, () => Array(cols).fill(0));
+                const acrossClues = [];
+                const downClues = [];
+                let numCounter = 1;
+
+                // Assign numbers and clues only for real placed words
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        if (!isWhite[r][c]) continue;
+
+                        const entry = startMap[r][c];
+                        if (!entry.across && !entry.down) continue;
+
+                        const num = numCounter++;
+                        numberMap[r][c] = num;
+
+                        if (entry.across) {
+                            const gw = entry.across;
+                            const clue = normalizedClues[gw.word] || `(${gw.length} letters)`;
+                            acrossClues.push({ num, clue, word: gw });
+                        }
+                        if (entry.down) {
+                            const gw = entry.down;
+                            const clue = normalizedClues[gw.word] || `(${gw.length} letters)`;
+                            downClues.push({ num, clue, word: gw });
+                        }
+                    }
+                }
+
+                // Create grid cells
+                const inputs = Array.from({length: rows}, () => Array(cols).fill(null));
+                for (let row = 0; row < rows; row++) {
+                    for (let col = 0; col < cols; col++) {
+                        const isBlack = !isWhite[row][col];
+                        const cellDiv = document.createElement('div');
+                        cellDiv.className = 'cell' + (isBlack ? ' black' : '');
+
+                        if (!isBlack) {
+                            const input = document.createElement('input');
+                            input.className = 'cell-input';
+                            input.type = 'text';
+                            input.maxLength = 1;
+                            input.dataset.row = row;
+                            input.dataset.col = col;
+                            const correctLetter = this.getCell(row + minR, col + minC);
+                            input.dataset.answer = correctLetter;
+                            
+                            // Mark as secret cell if applicable
+                            const isSecretCell = secretCells.some(([sr, sc]) => sr === (row + minR) && sc === (col + minC));
+                            if (isSecretCell) {
+                                input.classList.add('secret-cell');
+                                input.dataset.isSecret = 'true';
+                            }
+                            
+                            // Store word membership
+                            const cellWord = cellWords[row][col];
+                            input.dataset.hasAcross = cellWord.across ? 'true' : 'false';
+                            input.dataset.hasDown = cellWord.down ? 'true' : 'false';
+                            
+                            // Click handler to set direction and toggle if cell is in both words
+                            input.addEventListener('click', (e) => {
+                                const hasAcross = e.target.dataset.hasAcross === 'true';
+                                const hasDown = e.target.dataset.hasDown === 'true';
+                                
+                                if (hasAcross && hasDown) {
+                                    // Toggle direction if cell is in both
+                                    currentDirection = currentDirection === Direction.ACROSS ? Direction.DOWN : Direction.ACROSS;
+                                } else if (hasAcross) {
+                                    currentDirection = Direction.ACROSS;
+                                } else if (hasDown) {
+                                    currentDirection = Direction.DOWN;
+                                }
+                                
+                                highlightWord(row, col, currentDirection, minR, minC, cellWords);
+                            });
+                            
+                            input.addEventListener('focus', (e) => {
+                                // Set initial direction based on available words
+                                const hasAcross = e.target.dataset.hasAcross === 'true';
+                                const hasDown = e.target.dataset.hasDown === 'true';
+                                
+                                if (!hasAcross && hasDown) {
+                                    currentDirection = Direction.DOWN;
+                                } else if (hasAcross && !hasDown) {
+                                    currentDirection = Direction.ACROSS;
+                                }
+                                // else keep current direction
+                                
+                                highlightWord(row, col, currentDirection, minR, minC, cellWords);
+                            });
+                            
+                            input.addEventListener('input', (e) => {
+                                e.target.value = e.target.value.toUpperCase();
+                                e.target.classList.remove('correct', 'incorrect');
+                                
+                                // Start timer on first input
+                                if (!timerStarted) {
+                                    startTimer();
+                                }
+                                
+                                // Update progress
+                                updateProgress();
+                                
+                                // Auto-advance in current direction after typing
+                                if (e.target.value) {
+                                    const r = parseInt(e.target.dataset.row);
+                                    const c = parseInt(e.target.dataset.col);
+                                    
+                                    if (currentDirection === Direction.ACROSS) {
+                                        // Move right
+                                        if (c + 1 < cols && inputs[r][c + 1]) {
+                                            inputs[r][c + 1].focus();
+                                        }
+                                    } else {
+                                        // Move down
+                                        if (r + 1 < rows && inputs[r + 1][c]) {
+                                            inputs[r + 1][c].focus();
+                                        }
+                                    }
+                                }
+                            });
+                            
+                            input.addEventListener('keydown', (e) => {
+                                const r = parseInt(e.target.dataset.row);
+                                const c = parseInt(e.target.dataset.col);
+                                
+                                switch(e.key) {
+                                    case 'ArrowRight':
+                                        e.preventDefault();
+                                        currentDirection = Direction.ACROSS;
+                                        if (c + 1 < cols && inputs[r][c + 1]) inputs[r][c + 1].focus();
+                                        break;
+                                    case 'ArrowLeft':
+                                        e.preventDefault();
+                                        currentDirection = Direction.ACROSS;
+                                        if (c - 1 >= 0 && inputs[r][c - 1]) inputs[r][c - 1].focus();
+                                        break;
+                                    case 'ArrowDown':
+                                        e.preventDefault();
+                                        currentDirection = Direction.DOWN;
+                                        if (r + 1 < rows && inputs[r + 1][c]) inputs[r + 1][c].focus();
+                                        break;
+                                    case 'ArrowUp':
+                                        e.preventDefault();
+                                        currentDirection = Direction.DOWN;
+                                        if (r - 1 >= 0 && inputs[r - 1][c]) inputs[r - 1][c].focus();
+                                        break;
+                                    case 'Backspace':
+                                        if (e.target.value === '') {
+                                            e.preventDefault();
+                                            if (currentDirection === Direction.ACROSS) {
+                                                if (c - 1 >= 0 && inputs[r][c - 1]) {
+                                                    inputs[r][c - 1].focus();
+                                                }
+                                            } else {
+                                                if (r - 1 >= 0 && inputs[r - 1][c]) {
+                                                    inputs[r - 1][c].focus();
+                                                }
+                                            }
+                                        }
+                                        break;
+                                    case ' ':
+                                    case 'Spacebar':
+                                        // Toggle direction on space bar
+                                        e.preventDefault();
+                                        const hasAcross = e.target.dataset.hasAcross === 'true';
+                                        const hasDown = e.target.dataset.hasDown === 'true';
+                                        if (hasAcross && hasDown) {
+                                            currentDirection = currentDirection === Direction.ACROSS ? Direction.DOWN : Direction.ACROSS;
+                                        }
+                                        break;
+                                }
+                            });
+                            cellDiv.appendChild(input);
+                            inputs[row][col] = input;
+                        }
+
+                        if (numberMap[row][col] > 0) {
+                            const numSpan = document.createElement('span');
+                            numSpan.className = 'number';
+                            numSpan.textContent = numberMap[row][col];
+                            cellDiv.appendChild(numSpan);
+                        }
+
+                        gridDiv.appendChild(cellDiv);
+                    }
+                }
+
+                // Store for highlighting
+                window.cellWordsMap = cellWords;
+                window.minR = minR;
+                window.minC = minC;
+                window.numberMapData = numberMap;
+                window.acrossCluesData = acrossClues;
+                window.downCluesData = downClues;
+                
+                // Render clues
+                const cluesDiv = document.getElementById('clues');
+                cluesDiv.innerHTML = '<div id="across-clues"><h2>Across</h2><ul id="across-list"></ul></div><div id="down-clues"><h2>Down</h2><ul id="down-list"></ul></div>';
+                const acrossList = document.getElementById('across-list');
+                acrossClues.sort((a, b) => a.num - b.num);
+                for (let cl of acrossClues) {
+                    const li = document.createElement('li');
+                    li.className = 'clue-item';
+                    li.dataset.clueNum = cl.num;
+                    li.dataset.direction = 'across';
+                    li.textContent = `${cl.num}. ${cl.clue}`;
+                    li.addEventListener('click', () => {
+                        highlightWordByClue(cl.num, 'across', cl.word, minR, minC);
+                    });
+                    acrossList.appendChild(li);
+                }
+                const downList = document.getElementById('down-list');
+                downClues.sort((a, b) => a.num - b.num);
+                for (let cl of downClues) {
+                    const li = document.createElement('li');
+                    li.className = 'clue-item';
+                    li.dataset.clueNum = cl.num;
+                    li.dataset.direction = 'down';
+                    li.textContent = `${cl.num}. ${cl.clue}`;
+                    li.addEventListener('click', () => {
+                        highlightWordByClue(cl.num, 'down', cl.word, minR, minC);
+                    });
+                    downList.appendChild(li);
+                }
+
+                // Set clues height to match grid height
+                const gridHeight = gridDiv.clientHeight;
+                cluesDiv.style.height = `${gridHeight}px`;
+            }
+        }
+
+        const words = [
+            "NaturalSelection", "Exoplanet", "Life", "Organism", "Water", "Sun", "Moon", "Biology",
+            "Speciation", "Extremophile", "Metabolism", "Abiotic", "Autotroph", "Habitablezone", "Mariner",
+            "Viking", "Murchison", "FruitFly", "Stromatolites", "Arecibo", "Panspermia", "Clay theory", "ASU",
+            "ARC", "Biosphere", "GOE", "SETI", "REZA", "JamesWebb", "Curiosity",
+            "Perseverance", "Ingenuity", "Titan", "Europa", "Enceladus", "Methane", "Volatile",
+            "Hadean", "Homeostasis", "LUCA", "SuperEarth", "Rogue", "Exomoon", "Hycean", "Fermi", "Albedo"
+        ]; // Customize this list as needed
+
+        const cluesMap = {
+            "NaturalSelection": "The process by which organisms become better adapted to their environment.",
+            "Exoplanet": "The name of a planet that orbits another star.",
+            "Life": "a self-sustaining chemical system capable of undergoing Darwinian evolution.",
+            "Organism": "A living entity with one or more cells.",
+            "Water": "One of the required compounds for life.",
+            "Sun": "The name of our nearest star.",
+            "Moon": "The name of an object that orbits a planet.",
+            "Biology": "The study of living things.",
+            "Speciation": "Formation of new species.",
+            "Extremophile": "Organisms that can survive in extreme environments.",
+            "Metabolism": "The chemical process of life.",
+            "Abiotic": "Not living.",
+            "Autotroph": "An organism that makes its own food.",
+            "Habitablezone": "The region in a planetary system where liquid water can exist.",
+            "Mariner": "NASA probes that explored Venus, Mars, and Mercury",
+            "Viking": "The first life detection program.",
+            "Murchison": "The first meteorite containing organic matter.",
+            "FruitFly": "The first living entity sent to space.",
+            "Stromatolites": "The layered rocks made by ancient microbial mats.",
+            "Arecibo": "The world's largest single-aperture telescope.",
+            "Panspermia": "The hypothesis that life on Earth originated from extraterrestrial sources.",
+            "Clay theory": "A theory proposes that early life emerged on the surface of clay minerals",
+            "ASU": "Home of edgy scientists!",
+            "Iron": "The most abundant metal in the solar system.",
+            "Oxygen": "The most abundant element in the Earth's crust.",
+            "Iceage": "A time of widespread glaciation.",
+            "SnowballEarth": "The theory that Earth's oceans and land surfaces were covered in ice.",
+            "ALH": "The martian meteorite that was found in Antarctica in 1984.",
+            "ARC": "Ames Research Center.",
+            "Biosphere": "The layer of a planet where life exists.",
+            "GOE": "The turning point in Earth's history, when molecular oxygen first appeared.",
+            "SETI": "Search for Extraterrestrial Intelligence.",
+            "REZA": "The Creator of all of these!",
+            "JamesWebb": "The most powerful telescope ever launched into space.",
+            "Curiosity": "The mars rover that landed in Gale Crater in 2012.",
+            "Perseverance": "The mars rover that landed in Jezero Crater in 2021.",
+            "Ingenuity": "The first helicopter to fly on another planet.",
+            "Titan": "The largest moon of Saturn and second largest in the solar system.",
+            "Europa": "One of Jupiter's moons that may have a subsurface ocean.",
+            "Enceladus": "One of Saturn's moons that has geysers ejecting water ice.",
+            "Methane": "A simple organic molecule found on Titan and Mars.",
+            "Volatile": "A substance that vaporizes at a relatively low temperature.",
+            "Hadean": "The earliest eon in Earth's history, before the Archean.",
+            "Homeostasis": "The ability of an organism to maintain a stable internal environment.",
+            "LUCA": "The Last Universal Common Ancestor of all life on Earth.",
+            "SuperEarth": "A rocky exoplanet with 1–10 times Earth’s mass.",
+            "Rogue": "A free-floating planet not orbiting any star.",
+            "Exomoon": "A natural satellite orbiting an exoplanet.",
+            "Hycean": "A hypothetical class of ocean-covered planets with hydrogen-rich atmospheres.",
+            "Fermi": "The paradox asking Why no aliens detected despite billions of exoplanets?",
+            "Albedo": "The measure of reflectivity of a surface or body."
+        };
+
+        const normalizedClues = {};
+        for (let key in cluesMap) {
+            const normKey = key.toUpperCase().replace(/\s/g, '');
+            normalizedClues[normKey] = cluesMap[key];
+        }
+
+        let currentGrid = null;
+        
+        function startTimer() {
+            if (timerStarted) return;
+            timerStarted = true;
+            startTime = Date.now();
+            
+            timerInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                const hours = Math.floor(elapsed / 3600);
+                const minutes = Math.floor((elapsed % 3600) / 60);
+                const seconds = elapsed % 60;
+                
+                document.getElementById('timer-display').textContent = 
+                    `Time: ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            }, 1000);
+        }
+        
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+        
+        function updateProgress() {
+            const inputs = document.querySelectorAll('.cell-input');
+            let total = inputs.length;
+            let filled = 0;
+            
+            inputs.forEach(input => {
+                if (input.value.trim()) filled++;
+            });
+            
+            const percentage = total > 0 ? Math.round((filled / total) * 100) : 0;
+            document.getElementById('progress-display').textContent = 
+                `Progress: ${percentage}% (${filled}/${total})`;
+        }
+        
+        function showSecretClue() {
+            alert(SECRET_CLUE);
+        }
+        
+        function checkSecretCode() {
+            const input = document.getElementById('secret-input');
+            const entered = input.value.trim().toUpperCase();
+            
+            if (entered === SECRET_WORD) {
+                input.classList.add('correct');
+                document.getElementById('secret-feedback').textContent = '✓ Correct!';
+                document.getElementById('secret-feedback').style.color = 'green';
+            } else if (entered) {
+                input.classList.remove('correct');
+                document.getElementById('secret-feedback').textContent = '';
+            } else {
+                input.classList.remove('correct');
+                document.getElementById('secret-feedback').textContent = '';
+            }
+        }
+        
+        function togglePDFControls() {
+            const pdfControls = document.getElementById('pdf-controls');
+            pdfControls.style.display = pdfControls.style.display === 'none' ? 'block' : 'none';
+        }
+        
+        async function exportToPDF() {
+            const title = document.getElementById('pdf-title').value || 'Crossword Puzzle';
+            const description = document.getElementById('pdf-description').value;
+            const logoLeftFile = document.getElementById('pdf-logo-left').files[0];
+            const logoRightFile = document.getElementById('pdf-logo-right').files[0];
+            
+            try {
+                // Show loading message
+                const originalText = document.querySelector('button[onclick="exportToPDF()"]').textContent;
+                document.querySelector('button[onclick="exportToPDF()"]').textContent = '⏳ Generating PDF...';
+                
+                // Get the jsPDF constructor
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('portrait', 'pt', 'letter'); // 612 x 792 pt
+                
+                // Calculate dimensions
+                const pageWidth = 612;
+                const pageHeight = 792;
+                const margin = 36; // 0.5 inch
+                
+                // Add title (closer to top margin)
+                const titleY = margin + 5;
+                pdf.setFontSize(16);
+                pdf.setFont('helvetica', 'bold');
+                pdf.text(title, pageWidth / 2, titleY, { align: 'center' });
+                
+                // Add logos if provided (40pt square, slightly below title)
+                const logoSize = 40;
+                const logoY = titleY + 5;
+                
+                // Helper function to read file as data URL
+                const readFileAsDataURL = (file) => {
+                    return new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = (e) => resolve(e.target.result);
+                        reader.onerror = (e) => reject(e);
+                        reader.readAsDataURL(file);
+                    });
+                };
+                
+                // Load and add left logo
+                if (logoLeftFile) {
+                    try {
+                        const leftDataUrl = await readFileAsDataURL(logoLeftFile);
+                        pdf.addImage(leftDataUrl, 'PNG', margin, logoY, logoSize, logoSize);
+                    } catch (e) {
+                        console.warn('Failed to load left logo:', e);
+                    }
+                }
+                
+                // Load and add right logo
+                if (logoRightFile) {
+                    try {
+                        const rightDataUrl = await readFileAsDataURL(logoRightFile);
+                        pdf.addImage(rightDataUrl, 'PNG', pageWidth - margin - logoSize, logoY, logoSize, logoSize);
+                    } catch (e) {
+                        console.warn('Failed to load right logo:', e);
+                    }
+                }
+                
+                // Draw grid using rectangles (like Python PDF)
+                const cellSize = 11; // pt - reduced from 15 to fit page better
+                
+                // Get grid bounds first to calculate dimensions
+                const [minR, minC, maxR, maxC] = currentGrid.getBounds();
+                const rows = maxR - minR + 1;
+                const cols = maxC - minC + 1;
+                const gridWidth = cols * cellSize;
+                
+                // Center the grid horizontally
+                const gridX = (pageWidth - gridWidth) / 2;
+                const gridY = margin + 55; // Adjusted for logo space
+                
+                // Get cell data
+                const numberMap = window.numberMapData || [];
+                
+                // Draw each cell
+                pdf.setLineWidth(0.5);
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        const actualR = r + minR;
+                        const actualC = c + minC;
+                        const letter = currentGrid.getCell(actualR, actualC);
+                        
+                        if (letter && letter !== '#') {
+                            const x = gridX + c * cellSize;
+                            const y = gridY + r * cellSize;
+                            
+                            // Check if this is a secret cell
+                            const isSecret = secretCells.some(([sr, sc]) => sr === actualR && sc === actualC);
+                            
+                            // Draw cell border
+                            if (isSecret) {
+                                pdf.setLineWidth(2); // Thick border for secret cells
+                                pdf.rect(x, y, cellSize, cellSize);
+                                pdf.setLineWidth(0.5);
+                            } else {
+                                pdf.rect(x, y, cellSize, cellSize);
+                            }
+                            
+                            // Add number if exists
+                            const cellNum = numberMap[r] && numberMap[r][c];
+                            if (cellNum) {
+                                pdf.setFillColor(255, 255, 0); // Yellow background
+                                pdf.rect(x + 0.5, y + 0.5, 5, 4, 'F');
+                                pdf.setFontSize(4);
+                                pdf.setFont('helvetica', 'bold');
+                                pdf.setTextColor(0, 0, 0);
+                                pdf.text(cellNum.toString(), x + 1, y + 3.5);
+                            }
+                        }
+                    }
+                }
+                
+                // Calculate grid height for clue positioning
+                const gridHeight = rows * cellSize;
+                
+                // Position clues BELOW the puzzle in two columns
+                const cluesStartY = gridY + gridHeight + 20;
+                const columnWidth = (pageWidth - 2 * margin - 20) / 2;
+                
+                // ACROSS clues - left column
+                const acrossX = margin + 10;
+                let acrossY = cluesStartY;
+                
+                pdf.setFontSize(9);
+                pdf.setFont('helvetica', 'bold');
+                pdf.text('ACROSS', acrossX, acrossY);
+                acrossY += 12;
+                
+                pdf.setFontSize(6.5);
+                pdf.setFont('helvetica', 'normal');
+                const acrossClues = window.acrossCluesData || [];
+                for (let clue of acrossClues) {
+                    const lines = pdf.splitTextToSize(`${clue.num}. ${clue.clue}`, columnWidth);
+                    for (let line of lines) {
+                        if (acrossY > pageHeight - 15) break; // Reduced from 40 to 15 for more space
+                        pdf.text(line, acrossX, acrossY);
+                        acrossY += 8;
+                    }
+                }
+                
+                // DOWN clues - right column
+                const downX = acrossX + columnWidth + 10;
+                let downY = cluesStartY;
+                
+                pdf.setFontSize(9);
+                pdf.setFont('helvetica', 'bold');
+                pdf.text('DOWN', downX, downY);
+                downY += 12;
+                
+                pdf.setFontSize(6.5);
+                pdf.setFont('helvetica', 'normal');
+                const downClues = window.downCluesData || [];
+                for (let clue of downClues) {
+                    const lines = pdf.splitTextToSize(`${clue.num}. ${clue.clue}`, columnWidth);
+                    for (let line of lines) {
+                        if (downY > pageHeight - 15) break; // Reduced from 40 to 15 for more space
+                        pdf.text(line, downX, downY);
+                        downY += 8;
+                    }
+                }
+                
+                // Add secret code clue (vertical, left side)
+                pdf.setFontSize(6);
+                pdf.setFont('helvetica', 'bold');
+                pdf.text(SECRET_CLUE.substring(0, 200), 10, pageHeight - 100, {
+                    angle: 90,
+                    maxWidth: 400
+                });
+                
+                // Add word list (vertical, right side)
+                if (currentGrid && currentGrid.placed) {
+                    const wordList = currentGrid.placed.map(p => p.word.toLowerCase()).join('-');
+                    pdf.setFontSize(4.5);
+                    pdf.text(wordList.substring(0, 300), pageWidth - 5, pageHeight - 10, {
+                        angle: 90,
+                        maxWidth: 680
+                    });
+                }
+                
+                // Add description (bottom left, single line)
+                if (description) {
+                    pdf.setFontSize(5.5);
+                    pdf.setFont('helvetica', 'italic');
+                    // Combine all lines into one, separated by spaces or dashes
+                    const singleLine = description.replace(/\n/g, ' - ');
+                    pdf.text(singleLine, margin + 10, pageHeight - 10);
+                }
+                
+                // Save PDF
+                pdf.save(`${title.replace(/\s+/g, '_')}.pdf`);
+                
+                // Restore button text
+                document.querySelector('button[onclick="exportToPDF()"]').textContent = originalText;
+                
+            } catch (error) {
+                console.error('PDF generation error:', error);
+                alert('Error generating PDF: ' + error.message);
+                document.querySelector('button[onclick="exportToPDF()"]').textContent = '📄 Export to PDF';
+            }
+        }
+
+        function highlightWord(row, col, direction, minR, minC, cellWords) {
+            // Clear all highlights
+            document.querySelectorAll('.cell-input').forEach(input => {
+                if (!input.classList.contains('correct') && !input.classList.contains('incorrect')) {
+                    input.classList.remove('highlighted');
+                }
+            });
+            document.querySelectorAll('.clue-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // Get the word for this cell and direction
+            const word = cellWords[row][col][direction === Direction.ACROSS ? 'across' : 'down'];
+            if (!word) return;
+            
+            // Highlight all cells in this word
+            const [deltaR, deltaC] = Direction.getDeltas(word.direction);
+            for (let i = 0; i < word.length; i++) {
+                const cellR = word.r - minR + i * deltaR;
+                const cellC = word.c - minC + i * deltaC;
+                const inputs = document.querySelectorAll(`input[data-row="${cellR}"][data-col="${cellC}"]`);
+                inputs.forEach(input => {
+                    if (!input.classList.contains('correct') && !input.classList.contains('incorrect')) {
+                        input.classList.add('highlighted');
+                    }
+                });
+            }
+            
+            // Highlight the clue
+            const clueNum = window.numberMapData[word.r - minR][word.c - minC];
+            const clueDirection = word.direction === Direction.ACROSS ? 'across' : 'down';
+            document.querySelectorAll(`.clue-item[data-clue-num="${clueNum}"][data-direction="${clueDirection}"]`).forEach(item => {
+                item.classList.add('active');
+            });
+        }
+        
+        function highlightWordByClue(clueNum, direction, word, minR, minC) {
+            // Clear all highlights
+            document.querySelectorAll('.cell-input').forEach(input => {
+                if (!input.classList.contains('correct') && !input.classList.contains('incorrect')) {
+                    input.classList.remove('highlighted');
+                }
+            });
+            document.querySelectorAll('.clue-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // Highlight all cells in this word
+            const [deltaR, deltaC] = Direction.getDeltas(word.direction);
+            for (let i = 0; i < word.length; i++) {
+                const cellR = word.r - minR + i * deltaR;
+                const cellC = word.c - minC + i * deltaC;
+                const inputs = document.querySelectorAll(`input[data-row="${cellR}"][data-col="${cellC}"]`);
+                inputs.forEach(input => {
+                    if (!input.classList.contains('correct') && !input.classList.contains('incorrect')) {
+                        input.classList.add('highlighted');
+                    }
+                });
+            }
+            
+            // Highlight the clue
+            document.querySelectorAll(`.clue-item[data-clue-num="${clueNum}"][data-direction="${direction}"]`).forEach(item => {
+                item.classList.add('active');
+            });
+            
+            // Focus on first cell of the word
+            const firstCellR = word.r - minR;
+            const firstCellC = word.c - minC;
+            const firstInput = document.querySelector(`input[data-row="${firstCellR}"][data-col="${firstCellC}"]`);
+            if (firstInput) firstInput.focus();
+        }
+
+        function generatePuzzle() {
+            try {
+                // Reset timer and progress
+                stopTimer();
+                timerStarted = false;
+                startTime = null;
+                document.getElementById('timer-display').textContent = 'Time: 00:00:00';
+                document.getElementById('progress-display').textContent = 'Progress: 0%';
+                document.getElementById('secret-input').value = '';
+                document.getElementById('secret-input').classList.remove('correct');
+                document.getElementById('secret-feedback').textContent = '';
+                
+                currentGrid = new Grid(words.slice());
+                currentGrid.renderGrid();
+                updateProgress();
+            } catch (error) {
+                console.error('Error generating puzzle:', error);
+                alert('Failed to generate puzzle. Please try again.');
+            }
+        }
+
+        function checkAnswers() {
+            const inputs = document.querySelectorAll('.cell-input');
+            let correct = 0;
+            let total = 0;
+            let empty = 0;
+            
+            inputs.forEach(input => {
+                total++;
+                input.classList.remove('correct', 'incorrect');
+                if (!input.value.trim()) {
+                    empty++;
+                } else if (input.value.toUpperCase() === input.dataset.answer) {
+                    input.classList.add('correct');
+                    correct++;
+                } else {
+                    input.classList.add('incorrect');
+                }
+            });
+            
+            // Check secret code
+            const secretInput = document.getElementById('secret-input');
+            const secretCorrect = secretInput.value.trim().toUpperCase() === SECRET_WORD;
+            
+            // Check if puzzle is complete
+            if (correct === total && empty === 0 && secretCorrect) {
+                stopTimer();
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                const hours = Math.floor(elapsed / 3600);
+                const minutes = Math.floor((elapsed % 3600) / 60);
+                const seconds = elapsed % 60;
+                const timeStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                
+                alert(`🎉 Congratulations! You solved the puzzle correctly!\n\n⏱️ Time: ${timeStr}`);
+            } else {
+                let msg = `${correct} out of ${total} correct (${Math.round(correct/total*100)}%)`;
+                if (empty > 0) msg += `\n${empty} empty cells remaining`;
+                if (!secretCorrect) msg += `\n❌ Secret code missing or incorrect`;
+                alert(msg);
+            }
+        }
+
+        function revealAnswers() {
+            const inputs = document.querySelectorAll('.cell-input');
+            inputs.forEach(input => {
+                input.value = input.dataset.answer;
+                input.classList.remove('incorrect');
+                input.classList.add('correct');
+            });
+            
+            // Reveal secret code
+            const secretInput = document.getElementById('secret-input');
+            secretInput.value = SECRET_WORD;
+            checkSecretCode();
+            
+            updateProgress();
+        }
+
+        function clearGrid() {
+            const inputs = document.querySelectorAll('.cell-input');
+            inputs.forEach(input => {
+                input.value = '';
+                input.classList.remove('correct', 'incorrect');
+            });
+            
+            // Clear secret code
+            document.getElementById('secret-input').value = '';
+            document.getElementById('secret-input').classList.remove('correct');
+            document.getElementById('secret-feedback').textContent = '';
+            
+            updateProgress();
+        }
+
+        // Generate initial puzzle on load
+        window.onload = generatePuzzle;
+    </script>
+</body>
+</html>
